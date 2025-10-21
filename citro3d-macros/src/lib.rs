@@ -5,7 +5,7 @@
 
 use std::error::Error;
 use std::fs::DirBuilder;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{env, process};
 
 use litrs::StringLit;
