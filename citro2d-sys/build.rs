@@ -66,7 +66,7 @@ fn main() {
     let bindings = Builder::default()
         .header(three_ds_h.to_str().unwrap())
         .header(citro2d_h.to_str().unwrap())
-        .rust_target(RustTarget::Nightly)
+        .rust_target(RustTarget::nightly())
         .use_core()
         .trust_clang_mangling(false)
         .layout_tests(false)

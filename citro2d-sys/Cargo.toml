@@ -12,8 +12,8 @@ ctru-sys = { git = "https://github.com/rust3ds/ctru-rs.git" }
 citro3d-sys = { path = "../citro3d-sys" }
 
 [build-dependencies]
-bindgen = { version = "0.68.1", features = ["experimental"] }
-cc = "1.0.83"
+bindgen = { version = "0.72", features = ["experimental"] }
+cc = "1.0"
 doxygen-rs = "0.4.2"
 
 [dev-dependencies]
