@@ -1,5 +1,6 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(test_runner::run_gdb)]
+#![feature(allocator_api)]
 #![feature(doc_cfg)]
 #![doc(html_root_url = "https://rust3ds.github.io/citro3d-rs/crates")]
 #![doc(
@@ -17,26 +18,39 @@
 
 pub mod attrib;
 pub mod buffer;
+pub mod color;
 pub mod error;
+pub mod fog;
+pub mod light;
 pub mod math;
 pub mod render;
 pub mod shader;
 pub mod texenv;
+pub mod texture;
 pub mod uniform;
 
 use std::cell::{OnceCell, RefMut};
 use std::fmt;
+use std::pin::Pin;
 use std::rc::Rc;
 
 use ctru::services::gfx::Screen;
 pub use error::{Error, Result};
 
+use self::buffer::{Index, Indices};
+use self::light::LightEnv;
 use self::texenv::TexEnv;
 use self::uniform::Uniform;
 
 pub mod macros {
     //! Helper macros for working with shaders.
     pub use citro3d_macros::*;
+}
+
+mod private {
+    pub trait Sealed {}
+    impl Sealed for u8 {}
+    impl Sealed for u16 {}
 }
 
 /// The single instance for using `citro3d`. This is the base type that an application
@@ -46,6 +60,7 @@ pub mod macros {
 pub struct Instance {
     texenvs: [OnceCell<TexEnv>; texenv::TEXENV_COUNT],
     queue: Rc<RenderQueue>,
+    light_env: Option<Pin<Box<LightEnv>>>,
 }
 
 /// Representation of `citro3d`'s internal render queue. This is something that
@@ -89,6 +104,7 @@ impl Instance {
                     OnceCell::new(),
                 ],
                 queue: Rc::new(RenderQueue),
+                light_env: None,
             })
         } else {
             Err(Error::FailedToInitialize)
@@ -189,12 +205,45 @@ impl Instance {
         self.set_buffer_info(vbo_data.info());
 
         // TODO: should we also require the attrib info directly here?
-
         unsafe {
             citro3d_sys::C3D_DrawArrays(
                 primitive as ctru_sys::GPU_Primitive_t,
                 vbo_data.index(),
                 vbo_data.len(),
+            );
+        }
+    }
+    /// Indexed drawing
+    ///
+    /// Draws the vertices in `buf` indexed by `indices`. `indices` must be linearly allocated
+    ///
+    /// # Safety
+    // TODO: #41 might be able to solve this:
+    /// If `indices` goes out of scope before the current frame ends it will cause a
+    /// use-after-free (possibly by the GPU).
+    ///
+    /// # Panics
+    ///
+    /// If the given index buffer is too long to have its length converted to `i32`.
+    #[doc(alias = "C3D_DrawElements")]
+    pub unsafe fn draw_elements<I: Index>(
+        &mut self,
+        primitive: buffer::Primitive,
+        vbo_data: buffer::Slice,
+        indices: &Indices<'_, I>,
+    ) {
+        self.set_buffer_info(vbo_data.info());
+
+        let indices = &indices.buffer;
+        let elements = indices.as_ptr().cast();
+
+        unsafe {
+            citro3d_sys::C3D_DrawElements(
+                primitive as ctru_sys::GPU_Primitive_t,
+                indices.len().try_into().unwrap(),
+                // flag bit for short or byte
+                I::TYPE,
+                elements,
             );
         }
     }
@@ -206,6 +255,35 @@ impl Instance {
         unsafe {
             citro3d_sys::C3D_BindProgram(program.as_raw().cast_mut());
         }
+    }
+
+    /// Binds a new [`LightEnv`], returning the previous one (if present).
+    pub fn bind_light_env(
+        &mut self,
+        new_env: Option<Pin<Box<LightEnv>>>,
+    ) -> Option<Pin<Box<LightEnv>>> {
+        let old_env = self.light_env.take();
+        self.light_env = new_env;
+
+        unsafe {
+            // setup the light env slot, since this is a pointer copy it will stick around even with we swap
+            // out light_env later
+            citro3d_sys::C3D_LightEnvBind(
+                self.light_env
+                    .as_mut()
+                    .map_or(std::ptr::null_mut(), |env| env.as_mut().as_raw_mut()),
+            );
+        }
+
+        old_env
+    }
+
+    pub fn light_env(&self) -> Option<Pin<&LightEnv>> {
+        self.light_env.as_ref().map(|env| env.as_ref())
+    }
+
+    pub fn light_env_mut(&mut self) -> Option<Pin<&mut LightEnv>> {
+        self.light_env.as_mut().map(|env| env.as_mut())
     }
 
     /// Bind a uniform to the given `index` in the vertex shader for the next draw call.

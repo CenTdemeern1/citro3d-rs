@@ -5,7 +5,7 @@ use std::cell::RefMut;
 use std::rc::Rc;
 
 use citro3d_sys::{
-    C3D_RenderTarget, C3D_RenderTargetCreate, C3D_RenderTargetDelete, C3D_DEPTHTYPE,
+    C3D_DEPTHTYPE, C3D_RenderTarget, C3D_RenderTargetCreate, C3D_RenderTargetDelete,
 };
 use ctru::services::gfx::Screen;
 use ctru::services::gspgpu::FramebufferFormat;
@@ -13,6 +13,7 @@ use ctru_sys::{GPU_COLORBUF, GPU_DEPTHBUF};
 
 use crate::{Error, RenderQueue, Result};
 
+pub mod effect;
 mod transfer;
 
 /// A render target for `citro3d`. Frame data will be written to this target

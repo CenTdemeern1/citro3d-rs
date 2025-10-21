@@ -9,5 +9,5 @@ license = "MIT OR Apache-2.0"
 proc-macro = true
 
 [dependencies]
-litrs = { version = "0.4.0", default-features = false }
-quote = "1.0.32"
+litrs = { version = "0.5.1", default-features = false }
+quote = "1.0.40"
