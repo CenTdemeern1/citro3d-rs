@@ -5,7 +5,7 @@
 
 use std::error::Error;
 use std::fs::DirBuilder;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, process};
 
 use litrs::StringLit;
@@ -79,8 +79,10 @@ fn include_shader_impl(input: TokenStream) -> Result<TokenStream, Box<dyn Error>
     let cwd = env::current_dir()
         .map_err(|err| format!("unable to determine current directory: {err}"))?;
 
-    let invoking_source_file = shader_source_filename.span().source_file().path();
-    let Some(invoking_source_dir) = invoking_source_file.parent() else {
+    let invoking_source_file = shader_source_filename.span().local_file();
+    let Some(invoking_source_dir) =
+        invoking_source_file.and_then(|d| d.parent().map(Path::to_path_buf))
+    else {
         return Ok(quote! {
             compile_error!(
                 concat!(

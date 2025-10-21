@@ -2,7 +2,7 @@
 name = "citro2d-sys"
 version = "0.1.0"
 authors = ["Rust3DS Org", "Bailey Townsend"]
-edition = "2021"
+edition = "2024"
 license = "Zlib"
 links = "citro2d"
 
