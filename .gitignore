@@ -26,3 +26,7 @@ rust-toolchain.toml
 .bacon-locations
 bacon.toml
 justfile
+.vscode
+
+# Automatically generated macOS folder metadata file
+.DS_Store
