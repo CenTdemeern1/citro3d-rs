@@ -41,6 +41,7 @@ use self::buffer::{Index, Indices};
 use self::light::LightEnv;
 use self::texenv::TexEnv;
 use self::uniform::Uniform;
+use crate::render::{RenderTarget, ScreenTarget};
 
 pub mod macros {
     //! Helper macros for working with shaders.
@@ -119,51 +120,93 @@ impl Instance {
     /// Fails if the target could not be created with the given parameters.
     #[doc(alias = "C3D_RenderTargetCreate")]
     #[doc(alias = "C3D_RenderTargetSetOutput")]
-    pub fn render_target<'screen>(
+    pub fn create_render_target<'screen, S: Screen>(
         &self,
         width: usize,
         height: usize,
-        screen: RefMut<'screen, dyn Screen>,
+        screen: RefMut<'screen, S>,
         depth_format: Option<render::DepthFormat>,
-    ) -> Result<render::Target<'screen>> {
-        render::Target::new(width, height, screen, depth_format, Rc::clone(&self.queue))
+    ) -> Result<RenderTarget<'screen, S>> {
+        RenderTarget::new(width, height, screen, depth_format, Rc::clone(&self.queue))
     }
 
-    /// Select the given render target for drawing the frame. This must be called
-    /// as pare of a render call (i.e. within the call to
-    /// [`render_frame_with`](Self::render_frame_with)).
+    /// Render a frame.
     ///
-    /// # Errors
-    ///
-    /// Fails if the given target cannot be used for drawing, or called outside
-    /// the context of a frame render.
-    #[doc(alias = "C3D_FrameDrawOn")]
-    pub fn select_render_target(&mut self, target: &render::Target<'_>) -> Result<()> {
-        let _ = self;
-        if unsafe { citro3d_sys::C3D_FrameDrawOn(target.as_raw()) } {
-            Ok(())
-        } else {
-            Err(Error::InvalidRenderTarget)
-        }
-    }
-
-    /// Render a frame. The passed in function/closure can mutate the instance,
-    /// such as to [select a render target](Self::select_render_target)
-    /// or [bind a new shader program](Self::bind_program).
+    /// The passed in function/closure will receive a [RenderInstance]
+    /// and [RenderTarget] to grant the ability to render things.
+    /// It must also return the RenderTarget afterwards.
     #[doc(alias = "C3D_FrameBegin")]
+    #[doc(alias = "C3D_FrameDrawOn")]
     #[doc(alias = "C3D_FrameEnd")]
-    pub fn render_frame_with(&mut self, f: impl FnOnce(&mut Self)) {
-        unsafe {
+    pub fn render_to_target<'screen, 'screen2, S, S2, F>(
+        &mut self,
+        screen_target: ScreenTarget<'screen, S>,
+        f: F,
+    ) -> Result<ScreenTarget<'screen2, S2>>
+    where
+        S: Screen + 'screen,
+        S2: Screen + 'screen2,
+        F: FnOnce(&mut Self, RenderTarget<'screen, S>) -> RenderTarget<'screen2, S2>,
+    {
+        let render_target = unsafe {
             citro3d_sys::C3D_FrameBegin(
                 // TODO: begin + end flags should be configurable
                 citro3d_sys::C3D_FRAME_SYNCDRAW,
             );
-        }
+            self.set_render_target(&screen_target)?;
+            screen_target.into_inner()
+        };
 
-        f(self);
+        let render_target = f(self, render_target);
 
         unsafe {
             citro3d_sys::C3D_FrameEnd(0);
+        }
+
+        Ok(render_target.into())
+    }
+}
+
+impl Instance {
+    /// Change the render target for drawing the frame.
+    /// This will activate the `new_target` (turning it into a [RenderTarget])
+    /// and deactivate the `old_target` (turning it into a [ScreenTarget]).
+    ///
+    /// # Errors
+    ///
+    /// Fails if the `new_target` cannot be used for drawing.
+    #[doc(alias = "C3D_FrameDrawOn")]
+    pub fn swap_render_target<'screen, 'screen2, S: Screen + 'screen, S2: Screen + 'screen2>(
+        &mut self,
+        old_target: RenderTarget<'screen, S>,
+        new_target: ScreenTarget<'screen2, S2>,
+    ) -> std::result::Result<
+        (ScreenTarget<'screen, S>, RenderTarget<'screen2, S2>),
+        (RenderTarget<'screen, S>, ScreenTarget<'screen2, S2>, Error),
+    > {
+        match unsafe { self.set_render_target(&new_target) } {
+            Ok(()) => Ok((old_target.into(), unsafe { new_target.into_inner() })),
+            Err(e) => Err((old_target, new_target, e)),
+        }
+    }
+
+    /// Sets the active render target.
+    ///
+    /// This function is unsafe because it doesn't deactivate the previous render target.
+    /// You probably want to use [swap_render_target](Self::swap_render_target) instead.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the `target` cannot be used for drawing.
+    #[doc(alias = "C3D_FrameDrawOn")]
+    pub unsafe fn set_render_target<S: Screen>(
+        &mut self,
+        target: &ScreenTarget<'_, S>,
+    ) -> Result<()> {
+        if unsafe { citro3d_sys::C3D_FrameDrawOn(target.get_inner_ref().as_raw()) } {
+            Ok(())
+        } else {
+            Err(Error::InvalidRenderTarget)
         }
     }
 
@@ -371,9 +414,9 @@ mod tests {
         let screen = gfx.top_screen.borrow_mut();
 
         let mut instance = Instance::new().unwrap();
-        let target = instance.render_target(10, 10, screen, None).unwrap();
+        let target = instance.create_render_target(10, 10, screen, None).unwrap();
 
-        instance.render_frame_with(|instance| {
+        instance.render_to_target(|instance| {
             instance.select_render_target(&target).unwrap();
         });
 

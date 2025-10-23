@@ -16,18 +16,56 @@ use crate::{Error, RenderQueue, Result};
 pub mod effect;
 mod transfer;
 
+/// A Citro3D target bound to a screen that's not currently rendering.
+///
+/// To start rendering to this target, use [`Instance::render_to_target`].
+// The inner RenderTarget is private to not make it unavailable to the user
+// outside of the rendering state in safe contexts
+#[doc(alias = "C3D_RenderTarget")]
+pub struct ScreenTarget<'screen, S: Screen>(RenderTarget<'screen, S>);
+
+impl<'screen, S: Screen> ScreenTarget<'screen, S> {
+    /// Get the inner RenderTarget.
+    /// You usually want to call [`Instance::render_to_target`] instead.
+    pub unsafe fn into_inner(self) -> RenderTarget<'screen, S> {
+        self.0
+    }
+
+    /// Get a reference to the inner RenderTarget.
+    /// You usually want to call [`Instance::render_to_target`] instead.
+    pub unsafe fn get_inner_ref(&self) -> &RenderTarget<'screen, S> {
+        &self.0
+    }
+
+    /// Get a mutable refrence to the inner RenderTarget.
+    /// You usually want to call [`Instance::render_to_target`] instead.
+    pub unsafe fn get_inner_mut(&mut self) -> &mut RenderTarget<'screen, S> {
+        &mut self.0
+    }
+}
+
+impl<'screen, S: Screen> From<RenderTarget<'screen, S>> for ScreenTarget<'screen, S> {
+    /// Unless you called [ScreenTarget::into_inner] before, calling this
+    /// is almost cartainly a mistake.
+    ///
+    /// "Closes" the RenderTarget and turns it back into a ScreenTarget.
+    fn from(value: RenderTarget<'screen, S>) -> Self {
+        ScreenTarget(value)
+    }
+}
+
 /// A render target for `citro3d`. Frame data will be written to this target
 /// to be rendered on the GPU and displayed on the screen.
 #[doc(alias = "C3D_RenderTarget")]
-pub struct Target<'screen> {
+pub struct RenderTarget<'screen, S: Screen> {
     raw: *mut citro3d_sys::C3D_RenderTarget,
     // This is unused after construction, but ensures unique access to the
     // screen this target writes to during rendering
-    _screen: RefMut<'screen, dyn Screen>,
+    _screen: RefMut<'screen, S>,
     _queue: Rc<RenderQueue>,
 }
 
-impl Drop for Target<'_> {
+impl<S: Screen> Drop for RenderTarget<'_, S> {
     #[doc(alias = "C3D_RenderTargetDelete")]
     fn drop(&mut self) {
         unsafe {
@@ -36,14 +74,14 @@ impl Drop for Target<'_> {
     }
 }
 
-impl<'screen> Target<'screen> {
+impl<'screen, S: Screen> RenderTarget<'screen, S> {
     /// Create a new render target with the given parameters. This takes a
-    /// [`RenderQueue`] parameter to make sure this  [`Target`] doesn't outlive
+    /// [`RenderQueue`] parameter to make sure this [`Target`] doesn't outlive
     /// the render queue.
     pub(crate) fn new(
         width: usize,
         height: usize,
-        screen: RefMut<'screen, dyn Screen>,
+        screen: RefMut<'screen, S>,
         depth_format: Option<DepthFormat>,
         queue: Rc<RenderQueue>,
     ) -> Result<Self> {
@@ -93,7 +131,7 @@ impl<'screen> Target<'screen> {
     }
 
     /// Return the underlying `citro3d` render target for this target.
-    pub(crate) fn as_raw(&self) -> *mut C3D_RenderTarget {
+    pub fn as_raw(&self) -> *mut C3D_RenderTarget {
         self.raw
     }
 }

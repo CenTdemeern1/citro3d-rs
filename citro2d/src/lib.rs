@@ -20,7 +20,7 @@ pub mod render;
 pub mod shapes;
 use citro2d_sys::C2D_DEFAULT_MAX_OBJECTS;
 pub use error::{Error, Result};
-use render::Target;
+use render::ScreenTarget;
 
 /// The single instance for using `citro2d`. This is the base type that an application
 /// should instantiate to use this library.
@@ -76,13 +76,14 @@ impl Instance {
     #[doc(alias = "C3D_FrameBegin")]
     #[doc(alias = "C2D_SceneBegin")]
     #[doc(alias = "C3D_FrameEnd")]
-    pub fn render_target<F>(&mut self, target: &mut Target<'_>, f: F)
+    pub fn render_target<F>(&mut self, target: &mut ScreenTarget<'_>, f: F)
     where
         F: FnOnce(&Self, &mut Target<'_>),
     {
         unsafe {
             citro3d_sys::C3D_FrameBegin(citro3d_sys::C3D_FRAME_SYNCDRAW);
-            citro2d_sys::C2D_SceneBegin(target.raw);
+            let target = target.inner_mut();
+            citro2d_sys::C2D_SceneBegin(target.as_raw());
             f(self, target);
             citro3d_sys::C3D_FrameEnd(0);
         }
@@ -104,6 +105,7 @@ impl Instance {
 }
 
 /// Stats about the 3Ds's graphics
+#[derive(Debug, Clone, Copy)]
 pub struct Citro3DStats {
     pub processing_time: f32,
     pub drawing_time: f32,
@@ -111,7 +113,7 @@ pub struct Citro3DStats {
 }
 
 /// A 2D point in space.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Point {
     pub x: f32,
     pub y: f32,

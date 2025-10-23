@@ -5,7 +5,7 @@
 #![feature(allocator_api)]
 
 use citro2d::Point;
-use citro2d::render::{Color, Target};
+use citro2d::render::{Color, RenderTarget};
 use citro2d::shapes::{Circle, CircleSolid, Ellipse, MultiColor, Rectangle, Triangle};
 use ctru::{prelude::*, services::gfx::TopScreen3D};
 
@@ -20,7 +20,7 @@ fn main() {
     let mut citro2d_instance = citro2d::Instance::new().expect("Couldn't obtain citro2d instance");
     let top_screen = TopScreen3D::from(&gfx.top_screen);
     let (top_left, _) = top_screen.split_mut();
-    let mut top_target = Target::new(top_left).expect("failed to create render target");
+    let mut top_target = RenderTarget::new(top_left).expect("failed to create render target");
 
     let bottom_screen = Console::new(gfx.bottom_screen.borrow_mut());
     let clr_white = Color::new(255, 255, 255);

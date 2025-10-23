@@ -1,6 +1,6 @@
-//! Safe bindings to render 2d graphics to a [Target]
-use std::cell::RefMut;
+use std::{cell::RefMut, marker::PhantomData, ops::Deref};
 
+pub use citro3d::render::RenderTarget;
 use ctru::services::gfx::Screen;
 
 use crate::{Error, Result, shapes::Shape};
@@ -36,44 +36,32 @@ impl From<Color> for u32 {
     }
 }
 
-/// HACK A 2D target, which technically is a 3D target, but we use it for 2D rendering.
-/// There is a chance that this can be combined with the 3D target in the future.
-#[doc(alias = "C3D_RenderTarget")]
-pub struct Target<'screen> {
-    pub raw: *mut citro2d_sys::C3D_RenderTarget_tag,
-    // This is unused after construction, but ensures unique access to the
-    // screen this target writes to during rendering
-    _phantom_screen: RefMut<'screen, dyn Screen>,
+pub trait TargetExt {
+    /// Clears the screen to a specific [Color]
+    fn clear_with_color(&mut self, color: Color);
+
+    /// Renders a 2d shape to the [Target]
+    fn render_2d_shape(&mut self, shape: &impl Shape);
 }
 
-impl<'screen> Target<'screen> {
-    ///Creates a 2D [Target] for rendering. Even though it returns a C3D_RenderTarget_tag, it is required to use the C2D_CreateScreenTarget method
-    pub fn new(screen: RefMut<'screen, dyn Screen>) -> Result<Self> {
-        let raw =
-            unsafe { citro2d_sys::C2D_CreateScreenTarget(screen.as_raw(), screen.side().into()) };
-
-        if raw.is_null() {
-            return Err(Error::FailedToInitialize);
-        }
-
-        Ok(Self {
-            raw,
-            _phantom_screen: screen,
-        })
-    }
-
-    /// Clears the screen to a selected color
-    pub fn clear(&mut self, color: Color) {
+impl<'screen> TargetExt for RenderTarget<'screen> {
+    fn clear_with_color(&mut self, color: Color) {
         unsafe {
-            citro2d_sys::C2D_TargetClear(self.raw, color.inner);
+            citro2d_sys::C2D_TargetClear(self.as_raw(), color.inner);
         }
     }
 
     /// Renders a 2d shape to the [Target]
-    pub fn render_2d_shape<S>(&self, shape: &S)
-    where
-        S: Shape,
-    {
-        shape.render();
+    fn render_2d_shape(&mut self, shape: &impl Shape) {
+        shape.render(self);
+    }
+}
+
+pub struct ScreenTarget<'screen>(RenderTarget<'screen>);
+
+impl<'screen> ScreenTarget<'screen> {
+    //
+    pub unsafe fn inner_mut(&mut self) -> &'screen mut RenderTarget {
+        &mut self.0
     }
 }
