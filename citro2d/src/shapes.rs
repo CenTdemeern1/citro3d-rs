@@ -1,6 +1,5 @@
 //! Safe bindings to shapes supported by citro2d
 use citro3d::render::RenderTarget;
-use ctru::services::gfx::Screen;
 
 use crate::{Point, Size, render::Color};
 
@@ -16,7 +15,7 @@ pub struct MultiColor {
 /// A trait to help render all 2D shapes supported by citro2d
 pub trait Shape {
     //TODO possibly return Option<self>.
-    fn render<S: Screen>(&self, target: &mut RenderTarget<'_, S>) -> bool;
+    fn render(&self, target: &mut RenderTarget<'_>) -> bool;
 }
 
 /// Holds information for rendering a C2D_DrawRectangle
@@ -29,7 +28,7 @@ pub struct Rectangle {
 impl Shape for Rectangle {
     /// Draws a multi color rectangle
     #[doc(alias = "C2D_DrawRectangle")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<'_, S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget<'_>) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawRectangle(
                 self.point.x,
@@ -56,7 +55,7 @@ pub struct RectangleSolid {
 impl Shape for RectangleSolid {
     /// Draws a single colored Rectangle
     #[doc(alias = "C2D_DrawRectSolid")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawRectSolid(
                 self.point.x,
@@ -84,7 +83,7 @@ pub struct Triangle {
 impl Shape for Triangle {
     /// Draws a multi color Triangle
     #[doc(alias = "C2D_DrawTriangle")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawTriangle(
                 self.top.x,
@@ -112,7 +111,7 @@ pub struct Ellipse {
 impl Shape for Ellipse {
     /// Draws a multi color Ellipse
     #[doc(alias = "C2D_DrawEllipse")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawEllipse(
                 self.point.x,
@@ -139,7 +138,7 @@ pub struct EllipseSolid {
 impl Shape for EllipseSolid {
     ///Draws a solid color Ellipse
     #[doc(alias = "C2D_DrawEllipseSolid")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawEllipseSolid(
                 self.point.x,
@@ -162,7 +161,7 @@ pub struct Circle {
 impl Shape for Circle {
     /// Draws a multi color Ellipse
     #[doc(alias = "C2D_DrawCircle")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawCircle(
                 self.point.x,
@@ -190,7 +189,7 @@ pub struct CircleSolid {
 impl Shape for CircleSolid {
     /// Renders a solid Circle
     #[doc(alias = "C2D_DrawCircleSolid")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawCircleSolid(self.x, self.y, self.z, self.radius, self.color.into())
         }
@@ -210,7 +209,7 @@ pub struct Line {
 impl Shape for Line {
     /// Renders a line
     #[doc(alias = "C2D_DrawLine")]
-    fn render<S: Screen>(&self, _target: &mut RenderTarget<S>) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> bool {
         unsafe {
             citro2d_sys::C2D_DrawLine(
                 self.start.x,

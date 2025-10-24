@@ -6,7 +6,7 @@
 use citro3d::macros::include_shader;
 use citro3d::math::{AspectRatio, ClipPlanes, Matrix4, Projection, StereoDisplacement};
 use citro3d::render::{ClearFlags, RenderTarget, ScreenTarget};
-use citro3d::texenv;
+use citro3d::{Instance, texenv};
 use citro3d::{attrib, buffer, render, shader};
 use ctru::prelude::*;
 use ctru::services::gfx::{RawFrameBuffer, Screen, TopScreen3D};
@@ -58,26 +58,26 @@ fn main() {
     let mut hid = Hid::new().expect("Couldn't obtain HID controller");
     let apt = Apt::new().expect("Couldn't obtain APT controller");
 
-    let mut instance = citro3d::Instance::new().expect("failed to initialize Citro3D");
+    let mut instance = Instance::new().expect("failed to initialize Citro3D");
 
     let top_screen = TopScreen3D::from(&gfx.top_screen);
 
     let (mut top_left, mut top_right) = top_screen.split_mut();
 
     let RawFrameBuffer { width, height, .. } = top_left.raw_framebuffer();
-    let mut top_left_target: ScreenTarget<'_, dyn Screen> = instance
+    let mut top_left_target: ScreenTarget<'_> = instance
         .create_screen_target(width, height, top_left, None)
         .expect("failed to create render target");
 
     let RawFrameBuffer { width, height, .. } = top_right.raw_framebuffer();
-    let mut top_right_target: ScreenTarget<'_, dyn Screen> = instance
+    let mut top_right_target: ScreenTarget<'_> = instance
         .create_screen_target(width, height, top_right, None)
         .expect("failed to create render target");
 
     let mut bottom_screen = gfx.bottom_screen.borrow_mut();
     let RawFrameBuffer { width, height, .. } = bottom_screen.raw_framebuffer();
 
-    let mut bottom_target: ScreenTarget<'_, dyn Screen> = instance
+    let mut bottom_target: ScreenTarget<'_> = instance
         .create_screen_target(width, height, bottom_screen, None)
         .expect("failed to create bottom screen render target");
 
@@ -111,16 +111,17 @@ fn main() {
         }
 
         (bottom_target, (top_left_target, top_right_target)) = instance
-            .render_to_target(top_left_target, |instance, top_left_target| {
-                let mut render_to = |target: &mut RenderTarget<'_, dyn Screen>, projection| {
-                    target.clear(ClearFlags::ALL, CLEAR_COLOR, 0);
+            .render_to_target(top_left_target, |instance, mut top_left_target| {
+                let mut render_to =
+                    |instance: &mut Instance, target: &mut RenderTarget<'_>, projection| {
+                        target.clear(ClearFlags::ALL, CLEAR_COLOR, 0);
 
-                    instance.bind_vertex_uniform(projection_uniform_idx, projection);
+                        instance.bind_vertex_uniform(projection_uniform_idx, projection);
 
-                    instance.set_attr_info(&attr_info);
+                        instance.set_attr_info(&attr_info);
 
-                    instance.draw_arrays(buffer::Primitive::Triangles, vbo_data);
-                };
+                        instance.draw_arrays(buffer::Primitive::Triangles, vbo_data);
+                    };
 
                 let Projections {
                     left_eye,
@@ -128,15 +129,15 @@ fn main() {
                     center,
                 } = calculate_projections();
 
-                render_to(&mut top_left_target, &left_eye);
-                let (top_left_target, top_right_target) = instance
+                render_to(instance, &mut top_left_target, &left_eye);
+                let (top_left_target, mut top_right_target) = instance
                     .swap_render_target(top_left_target, top_right_target)
                     .expect("failed to set render target");
-                render_to(&mut top_right_target, &right_eye);
-                let (top_right_target, bottom_target) = instance
+                render_to(instance, &mut top_right_target, &right_eye);
+                let (top_right_target, mut bottom_target) = instance
                     .swap_render_target(top_right_target, bottom_target)
                     .expect("failed to set render target");
-                render_to(&mut bottom_target, &center);
+                render_to(instance, &mut bottom_target, &center);
                 (bottom_target, (top_left_target, top_right_target))
             })
             .expect("failed to set render target");

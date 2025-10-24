@@ -1,9 +1,6 @@
-use std::{cell::RefMut, marker::PhantomData, ops::Deref};
-
 pub use citro3d::render::RenderTarget;
-use ctru::services::gfx::Screen;
 
-use crate::{Error, Result, shapes::Shape};
+use crate::shapes::Shape;
 
 /// A color in RGBA format. The color is stored as a 32-bit integer
 #[derive(Debug, Clone, Copy)]
@@ -44,7 +41,7 @@ pub trait TargetExt {
     fn render_2d_shape(&mut self, shape: &impl Shape);
 }
 
-impl<S: Screen> TargetExt for RenderTarget<'_, S> {
+impl TargetExt for RenderTarget<'_> {
     fn clear_with_color(&mut self, color: Color) {
         unsafe {
             citro2d_sys::C2D_TargetClear(self.as_raw(), color.inner);

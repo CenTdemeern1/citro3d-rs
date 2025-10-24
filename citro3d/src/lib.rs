@@ -112,21 +112,21 @@ impl Instance {
     /// Fails if the target could not be created with the given parameters.
     #[doc(alias = "C3D_RenderTargetCreate")]
     #[doc(alias = "C3D_RenderTargetSetOutput")]
-    pub fn create_screen_target<'screen, S: Screen>(
+    pub fn create_screen_target<'screen>(
         &self,
         width: usize,
         height: usize,
-        screen: RefMut<'screen, S>,
+        screen: RefMut<'screen, dyn Screen>,
         depth_format: Option<render::DepthFormat>,
-    ) -> Result<ScreenTarget<'screen, S>> {
+    ) -> Result<ScreenTarget<'screen>> {
         ScreenTarget::new(width, height, screen, depth_format, Rc::clone(&self.queue))
     }
 
-    pub unsafe fn create_screen_target_from_raw<'screen, S: Screen>(
+    pub unsafe fn create_screen_target_from_raw<'screen>(
         &self,
         raw: *mut citro3d_sys::C3D_RenderTarget_tag,
-        screen: RefMut<'screen, S>,
-    ) -> Result<ScreenTarget<'screen, S>> {
+        screen: RefMut<'screen, dyn Screen>,
+    ) -> Result<ScreenTarget<'screen>> {
         unsafe { ScreenTarget::from_raw(raw, screen, Rc::clone(&self.queue)) }
     }
 
@@ -138,15 +138,13 @@ impl Instance {
     #[doc(alias = "C3D_FrameBegin")]
     #[doc(alias = "C3D_FrameDrawOn")]
     #[doc(alias = "C3D_FrameEnd")]
-    pub fn render_to_target<'screen, 'screen2, S, S2, F, T>(
+    pub fn render_to_target<'screen, 'screen2, F, T>(
         &mut self,
-        screen_target: ScreenTarget<'screen, S>,
+        screen_target: ScreenTarget<'screen>,
         f: F,
-    ) -> Result<(ScreenTarget<'screen2, S2>, T)>
+    ) -> Result<(ScreenTarget<'screen2>, T)>
     where
-        S: Screen + 'screen,
-        S2: Screen + 'screen2,
-        F: FnOnce(&mut Self, RenderTarget<'screen, S>) -> (RenderTarget<'screen2, S2>, T),
+        F: FnOnce(&mut Self, RenderTarget<'screen>) -> (RenderTarget<'screen2>, T),
     {
         let render_target = unsafe {
             citro3d_sys::C3D_FrameBegin(
@@ -176,13 +174,13 @@ impl Instance {
     ///
     /// Fails if the `new_target` cannot be used for drawing.
     #[doc(alias = "C3D_FrameDrawOn")]
-    pub fn swap_render_target<'screen, 'screen2, S: Screen + 'screen, S2: Screen + 'screen2>(
+    pub fn swap_render_target<'screen, 'screen2>(
         &mut self,
-        old_target: RenderTarget<'screen, S>,
-        new_target: ScreenTarget<'screen2, S2>,
+        old_target: RenderTarget<'screen>,
+        new_target: ScreenTarget<'screen2>,
     ) -> std::result::Result<
-        (ScreenTarget<'screen, S>, RenderTarget<'screen2, S2>),
-        (RenderTarget<'screen, S>, ScreenTarget<'screen2, S2>, Error),
+        (ScreenTarget<'screen>, RenderTarget<'screen2>),
+        (RenderTarget<'screen>, ScreenTarget<'screen2>, Error),
     > {
         match unsafe { self.set_render_target(&new_target) } {
             Ok(()) => Ok((old_target.into(), unsafe { new_target.into_inner() })),
@@ -199,10 +197,7 @@ impl Instance {
     ///
     /// Fails if the `target` cannot be used for drawing.
     #[doc(alias = "C3D_FrameDrawOn")]
-    pub unsafe fn set_render_target<S: Screen>(
-        &mut self,
-        target: &ScreenTarget<'_, S>,
-    ) -> Result<()> {
+    pub unsafe fn set_render_target(&mut self, target: &ScreenTarget<'_>) -> Result<()> {
         if unsafe { citro3d_sys::C3D_FrameDrawOn(target.get_inner_ref().as_raw()) } {
             Ok(())
         } else {

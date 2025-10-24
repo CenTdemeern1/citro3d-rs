@@ -77,8 +77,8 @@ impl Instance {
 
     pub fn create_screen_target<'screen, S: Screen>(
         &self,
-        screen: RefMut<'screen, S>,
-    ) -> Result<ScreenTarget<'screen, S>> {
+        screen: RefMut<'screen, dyn Screen>,
+    ) -> Result<ScreenTarget<'screen>> {
         unsafe {
             self.citro3d_instance
                 .create_screen_target_from_raw(
@@ -95,16 +95,13 @@ impl Instance {
     #[doc(alias = "C3D_FrameEnd")]
     pub fn render_to_target<'screen, 'screen2, S, S2, F, T>(
         &mut self,
-        screen_target: ScreenTarget<'screen, S>,
+        screen_target: ScreenTarget<'screen>,
         f: F,
-    ) -> citro3d::Result<(ScreenTarget<'screen2, S2>, T)>
+    ) -> citro3d::Result<(ScreenTarget<'screen2>, T)>
     where
         S: Screen + 'screen,
         S2: Screen + 'screen2,
-        F: FnOnce(
-            &mut citro3d::Instance,
-            RenderTarget<'screen, S>,
-        ) -> (RenderTarget<'screen2, S2>, T),
+        F: FnOnce(&mut citro3d::Instance, RenderTarget<'screen>) -> (RenderTarget<'screen2>, T),
     {
         self.citro3d_instance
             .render_to_target(screen_target, |render_instance, render_target| {
