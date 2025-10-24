@@ -138,15 +138,15 @@ impl Instance {
     #[doc(alias = "C3D_FrameBegin")]
     #[doc(alias = "C3D_FrameDrawOn")]
     #[doc(alias = "C3D_FrameEnd")]
-    pub fn render_to_target<'screen, 'screen2, S, S2, F>(
+    pub fn render_to_target<'screen, 'screen2, S, S2, F, T>(
         &mut self,
         screen_target: ScreenTarget<'screen, S>,
         f: F,
-    ) -> Result<ScreenTarget<'screen2, S2>>
+    ) -> Result<(ScreenTarget<'screen2, S2>, T)>
     where
         S: Screen + 'screen,
         S2: Screen + 'screen2,
-        F: FnOnce(&mut Self, RenderTarget<'screen, S>) -> RenderTarget<'screen2, S2>,
+        F: FnOnce(&mut Self, RenderTarget<'screen, S>) -> (RenderTarget<'screen2, S2>, T),
     {
         let render_target = unsafe {
             citro3d_sys::C3D_FrameBegin(
@@ -157,13 +157,13 @@ impl Instance {
             screen_target.into_inner()
         };
 
-        let render_target = f(self, render_target);
+        let (render_target, returns) = f(self, render_target);
 
         unsafe {
             citro3d_sys::C3D_FrameEnd(0);
         }
 
-        Ok(render_target.into())
+        Ok((render_target.into(), returns))
     }
 }
 
@@ -415,29 +415,26 @@ mod tests {
         let bottom_screen = gfx.bottom_screen.borrow_mut();
 
         let mut instance = Instance::new().unwrap();
-        let top_target = instance
+        let mut top_target = instance
             .create_screen_target(10, 10, top_screen, None)
             .unwrap();
         let mut bottom_target = instance
             .create_screen_target(10, 10, bottom_screen, None)
             .unwrap();
 
-        let mut post_render_top_target = None;
-        bottom_target = instance
+        (bottom_target, top_target) = instance
             .render_to_target(top_target, |instance, top_target| {
                 let (top_screen_target, bottom_target) = instance
                     .swap_render_target(top_target, bottom_target)
                     .unwrap();
-                post_render_top_target = Some(top_screen_target);
-                bottom_target
+                (bottom_target, top_screen_target)
             })
             .unwrap();
-        let post_render_top_target = post_render_top_target.unwrap();
 
         // Check that we don't get a double-free or use-after-free by dropping
         // the global instance before dropping the targets.
         drop(instance);
         drop(bottom_target);
-        drop(post_render_top_target);
+        drop(top_target);
     }
 }
