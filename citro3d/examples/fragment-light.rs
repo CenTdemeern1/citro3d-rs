@@ -2,11 +2,11 @@
 use std::f32::consts::PI;
 
 use citro3d::{
-    attrib, buffer,
+    Instance, attrib, buffer,
     color::Color,
     light::{DistanceAttenuation, LightEnv, Lut, LutId, LutInput, Material, Spotlight},
     math::{AspectRatio, ClipPlanes, FVec3, Matrix4, Projection, StereoDisplacement},
-    render::{self, ClearFlags},
+    render::{self, ClearFlags, RenderTarget},
     shader, texenv,
 };
 use citro3d_macros::include_shader;
@@ -373,32 +373,49 @@ fn main() {
             break;
         }
 
-        instance.render_to_target(|instance| {
-            let mut render_to = |target: &mut render::RenderTarget, projection| {
-                target.clear(ClearFlags::ALL, 0, 0);
+        (bottom_target, (top_left_target, top_right_target)) = instance
+            .render_to_target(top_left_target, |instance, mut top_left_target| {
+                let mut render_to =
+                    |instance: &mut Instance, target: &mut RenderTarget<'_>, projection| {
+                        target.clear(ClearFlags::ALL, 0, 0);
 
-                instance
-                    .select_render_target(target)
+                        instance.bind_vertex_uniform(projection_uniform_idx, projection);
+                        instance.bind_vertex_uniform(model_idx, view);
+
+                        instance.set_attr_info(&attr_info);
+
+                        instance.draw_arrays(buffer::Primitive::Triangles, vbo_data);
+                    };
+
+                let Projections {
+                    left_eye,
+                    right_eye,
+                    center,
+                } = calculate_projections();
+
+                // Render top left
+                render_to(instance, &mut top_left_target, &left_eye);
+
+                // Switch to top right and deactivate top left
+                let (top_left_target, mut top_right_target) = instance
+                    .swap_render_target(top_left_target, top_right_target)
                     .expect("failed to set render target");
 
-                instance.bind_vertex_uniform(projection_uniform_idx, projection);
-                instance.bind_vertex_uniform(model_idx, view);
+                // Render top right
+                render_to(instance, &mut top_right_target, &right_eye);
 
-                instance.set_attr_info(&attr_info);
+                // Switch to bottom and deactivate top right
+                let (top_right_target, mut bottom_target) = instance
+                    .swap_render_target(top_right_target, bottom_target)
+                    .expect("failed to set render target");
 
-                instance.draw_arrays(buffer::Primitive::Triangles, vbo_data);
-            };
+                // Render bottom
+                render_to(instance, &mut bottom_target, &center);
 
-            let Projections {
-                left_eye,
-                right_eye,
-                center,
-            } = calculate_projections();
-
-            render_to(&mut top_left_target, &left_eye);
-            render_to(&mut top_right_target, &right_eye);
-            render_to(&mut bottom_target, &center);
-        });
+                // Return active and inactive targets
+                (bottom_target, (top_left_target, top_right_target))
+            })
+            .expect("failed to set render target");
 
         // Rotate the modelView
         view.translate(0.0, 0.0, 2.0);
