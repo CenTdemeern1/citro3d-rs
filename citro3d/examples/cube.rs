@@ -85,19 +85,19 @@ fn main() {
 
     let RawFrameBuffer { width, height, .. } = top_left.raw_framebuffer();
     let mut top_left_target = instance
-        .create_render_target(width, height, top_left, None)
+        .create_screen_target(width, height, top_left, None)
         .expect("failed to create render target");
 
     let RawFrameBuffer { width, height, .. } = top_right.raw_framebuffer();
     let mut top_right_target = instance
-        .create_render_target(width, height, top_right, None)
+        .create_screen_target(width, height, top_right, None)
         .expect("failed to create render target");
 
     let mut bottom_screen = gfx.bottom_screen.borrow_mut();
     let RawFrameBuffer { width, height, .. } = bottom_screen.raw_framebuffer();
 
     let mut bottom_target = instance
-        .create_render_target(width, height, bottom_screen, None)
+        .create_screen_target(width, height, bottom_screen, None)
         .expect("failed to create bottom screen render target");
 
     let shader = shader::Library::from_bytes(SHADER_BYTES).unwrap();

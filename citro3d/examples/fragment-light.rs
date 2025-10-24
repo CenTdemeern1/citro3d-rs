@@ -260,7 +260,7 @@ fn main() {
 
     let RawFrameBuffer { width, height, .. } = top_left.raw_framebuffer();
     let mut top_left_target = instance
-        .create_render_target(
+        .create_screen_target(
             width,
             height,
             top_left,
@@ -270,7 +270,7 @@ fn main() {
 
     let RawFrameBuffer { width, height, .. } = top_right.raw_framebuffer();
     let mut top_right_target = instance
-        .create_render_target(
+        .create_screen_target(
             width,
             height,
             top_right,
@@ -282,7 +282,7 @@ fn main() {
     let RawFrameBuffer { width, height, .. } = bottom_screen.raw_framebuffer();
 
     let mut bottom_target = instance
-        .create_render_target(
+        .create_screen_target(
             width,
             height,
             bottom_screen,

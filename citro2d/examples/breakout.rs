@@ -2,7 +2,7 @@
 //! Very simple implementation with bugs, but to show case a simple 2d game
 #![feature(allocator_api)]
 
-use citro2d::render::{Color, RenderTarget};
+use citro2d::render::{Color, RenderTarget, TargetExt};
 use citro2d::shapes::{CircleSolid, RectangleSolid};
 use citro2d::{Point, Size};
 use ctru::{prelude::*, services::gfx::TopScreen3D};
@@ -21,7 +21,9 @@ fn main() {
     let mut citro2d_instance = citro2d::Instance::new().expect("Couldn't obtain citro2d instance");
     let top_screen = TopScreen3D::from(&gfx.top_screen);
     let (top_left, _) = top_screen.split_mut();
-    let mut top_target = RenderTarget::new(top_left).expect("failed to create render target");
+    let mut top_target = citro2d_instance
+        .create_screen_target(top_left)
+        .expect("failed to create render target");
 
     let bottom_screen = Console::new(gfx.bottom_screen.borrow_mut());
 
@@ -83,8 +85,8 @@ fn main() {
             paddle.move_right();
         }
 
-        citro2d_instance.render_target(&mut top_target, |_instance, render_target| {
-            render_target.clear(black);
+        citro2d_instance.render_to_target(&mut top_target, |_instance, render_target| {
+            render_target.clear_with_color(black);
 
             paddle.render(render_target);
 

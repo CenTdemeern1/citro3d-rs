@@ -18,9 +18,12 @@
 pub mod error;
 pub mod render;
 pub mod shapes;
+use std::cell::RefMut;
+
 use citro2d_sys::C2D_DEFAULT_MAX_OBJECTS;
+use citro3d::render::{RenderTarget, ScreenTarget};
+use ctru::services::gfx::Screen;
 pub use error::{Error, Result};
-use render::ScreenTarget;
 
 /// The single instance for using `citro2d`. This is the base type that an application
 /// should instantiate to use this library.
@@ -72,21 +75,41 @@ impl Instance {
         new_citro_2d
     }
 
+    pub fn create_screen_target<'screen, S: Screen>(
+        &self,
+        screen: RefMut<'screen, S>,
+    ) -> Result<ScreenTarget<'screen, S>> {
+        unsafe {
+            self.citro3d_instance
+                .create_screen_target_from_raw(
+                    citro2d_sys::C2D_CreateScreenTarget(screen.as_raw(), screen.side().into()),
+                    screen,
+                )
+                .map_err(|_| Error::FailedToInitialize)
+        }
+    }
+
     /// Render 2d graphics to a selected [Target]
     #[doc(alias = "C3D_FrameBegin")]
     #[doc(alias = "C2D_SceneBegin")]
     #[doc(alias = "C3D_FrameEnd")]
-    pub fn render_target<F>(&mut self, target: &mut ScreenTarget<'_>, f: F)
+    pub fn render_to_target<'screen, 'screen2, S, S2, F>(
+        &mut self,
+        screen_target: ScreenTarget<'screen, S>,
+        f: F,
+    ) -> citro3d::Result<ScreenTarget<'screen2, S2>>
     where
-        F: FnOnce(&Self, &mut Target<'_>),
+        S: Screen + 'screen,
+        S2: Screen + 'screen2,
+        F: FnOnce(&mut citro3d::Instance, RenderTarget<'screen, S>) -> RenderTarget<'screen2, S2>,
     {
-        unsafe {
-            citro3d_sys::C3D_FrameBegin(citro3d_sys::C3D_FRAME_SYNCDRAW);
-            let target = target.inner_mut();
-            citro2d_sys::C2D_SceneBegin(target.as_raw());
-            f(self, target);
-            citro3d_sys::C3D_FrameEnd(0);
-        }
+        self.citro3d_instance
+            .render_to_target(screen_target, |render_instance, render_target| {
+                unsafe {
+                    citro2d_sys::C2D_SceneBegin(render_target.as_raw());
+                }
+                f(render_instance, render_target)
+            })
     }
 
     /// Returns some stats about the 3Ds's graphics

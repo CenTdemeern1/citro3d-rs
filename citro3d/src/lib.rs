@@ -95,15 +95,7 @@ impl Instance {
     pub fn with_cmdbuf_size(size: usize) -> Result<Self> {
         if unsafe { citro3d_sys::C3D_Init(size) } {
             Ok(Self {
-                texenvs: [
-                    // thank goodness there's only six of them!
-                    OnceCell::new(),
-                    OnceCell::new(),
-                    OnceCell::new(),
-                    OnceCell::new(),
-                    OnceCell::new(),
-                    OnceCell::new(),
-                ],
+                texenvs: Default::default(),
                 queue: Rc::new(RenderQueue),
                 light_env: None,
             })
@@ -120,14 +112,22 @@ impl Instance {
     /// Fails if the target could not be created with the given parameters.
     #[doc(alias = "C3D_RenderTargetCreate")]
     #[doc(alias = "C3D_RenderTargetSetOutput")]
-    pub fn create_render_target<'screen, S: Screen>(
+    pub fn create_screen_target<'screen, S: Screen>(
         &self,
         width: usize,
         height: usize,
         screen: RefMut<'screen, S>,
         depth_format: Option<render::DepthFormat>,
-    ) -> Result<RenderTarget<'screen, S>> {
-        RenderTarget::new(width, height, screen, depth_format, Rc::clone(&self.queue))
+    ) -> Result<ScreenTarget<'screen, S>> {
+        ScreenTarget::new(width, height, screen, depth_format, Rc::clone(&self.queue))
+    }
+
+    pub unsafe fn create_screen_target_from_raw<'screen, S: Screen>(
+        &self,
+        raw: *mut citro3d_sys::C3D_RenderTarget_tag,
+        screen: RefMut<'screen, S>,
+    ) -> Result<ScreenTarget<'screen, S>> {
+        unsafe { ScreenTarget::from_raw(raw, screen, Rc::clone(&self.queue)) }
     }
 
     /// Render a frame.
@@ -411,18 +411,33 @@ mod tests {
     #[test]
     fn select_render_target() {
         let gfx = Gfx::new().unwrap();
-        let screen = gfx.top_screen.borrow_mut();
+        let top_screen = gfx.top_screen.borrow_mut();
+        let bottom_screen = gfx.bottom_screen.borrow_mut();
 
         let mut instance = Instance::new().unwrap();
-        let target = instance.create_render_target(10, 10, screen, None).unwrap();
+        let top_target = instance
+            .create_screen_target(10, 10, top_screen, None)
+            .unwrap();
+        let mut bottom_target = instance
+            .create_screen_target(10, 10, bottom_screen, None)
+            .unwrap();
 
-        instance.render_to_target(|instance| {
-            instance.select_render_target(&target).unwrap();
-        });
+        let mut post_render_top_target = None;
+        bottom_target = instance
+            .render_to_target(top_target, |instance, top_target| {
+                let (top_screen_target, bottom_target) = instance
+                    .swap_render_target(top_target, bottom_target)
+                    .unwrap();
+                post_render_top_target = Some(top_screen_target);
+                bottom_target
+            })
+            .unwrap();
+        let post_render_top_target = post_render_top_target.unwrap();
 
         // Check that we don't get a double-free or use-after-free by dropping
-        // the global instance before dropping the target.
+        // the global instance before dropping the targets.
         drop(instance);
-        drop(target);
+        drop(bottom_target);
+        drop(post_render_top_target);
     }
 }

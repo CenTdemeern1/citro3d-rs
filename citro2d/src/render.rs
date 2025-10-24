@@ -44,7 +44,7 @@ pub trait TargetExt {
     fn render_2d_shape(&mut self, shape: &impl Shape);
 }
 
-impl<'screen> TargetExt for RenderTarget<'screen> {
+impl<S: Screen> TargetExt for RenderTarget<'_, S> {
     fn clear_with_color(&mut self, color: Color) {
         unsafe {
             citro2d_sys::C2D_TargetClear(self.as_raw(), color.inner);
@@ -54,14 +54,5 @@ impl<'screen> TargetExt for RenderTarget<'screen> {
     /// Renders a 2d shape to the [Target]
     fn render_2d_shape(&mut self, shape: &impl Shape) {
         shape.render(self);
-    }
-}
-
-pub struct ScreenTarget<'screen>(RenderTarget<'screen>);
-
-impl<'screen> ScreenTarget<'screen> {
-    //
-    pub unsafe fn inner_mut(&mut self) -> &'screen mut RenderTarget {
-        &mut self.0
     }
 }

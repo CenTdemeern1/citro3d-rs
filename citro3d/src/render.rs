@@ -1,8 +1,8 @@
 //! This module provides render target types and options for controlling transfer
 //! of data to the GPU, including the format of color and depth data to be rendered.
 
-use std::cell::RefMut;
 use std::rc::Rc;
+use std::{cell::RefMut, fmt};
 
 use citro3d_sys::{
     C3D_DEPTHTYPE, C3D_RenderTarget, C3D_RenderTargetCreate, C3D_RenderTargetDelete,
@@ -25,6 +25,32 @@ mod transfer;
 pub struct ScreenTarget<'screen, S: Screen>(RenderTarget<'screen, S>);
 
 impl<'screen, S: Screen> ScreenTarget<'screen, S> {
+    pub(crate) fn new(
+        width: usize,
+        height: usize,
+        screen: RefMut<'screen, S>,
+        depth_format: Option<DepthFormat>,
+        queue: Rc<RenderQueue>,
+    ) -> Result<Self> {
+        Ok(ScreenTarget(RenderTarget::new(
+            width,
+            height,
+            screen,
+            depth_format,
+            queue,
+        )?))
+    }
+
+    pub(crate) unsafe fn from_raw(
+        raw: *mut citro3d_sys::C3D_RenderTarget_tag,
+        screen: RefMut<'screen, S>,
+        queue: Rc<RenderQueue>,
+    ) -> Result<Self> {
+        Ok(ScreenTarget(unsafe {
+            RenderTarget::from_raw(raw, screen, queue)
+        }?))
+    }
+
     /// Get the inner RenderTarget.
     /// You usually want to call [`Instance::render_to_target`] instead.
     pub unsafe fn into_inner(self) -> RenderTarget<'screen, S> {
@@ -54,6 +80,12 @@ impl<'screen, S: Screen> From<RenderTarget<'screen, S>> for ScreenTarget<'screen
     }
 }
 
+impl<S: Screen> fmt::Debug for ScreenTarget<'_, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ScreenTarget").finish_non_exhaustive()
+    }
+}
+
 /// A render target for `citro3d`. Frame data will be written to this target
 /// to be rendered on the GPU and displayed on the screen.
 #[doc(alias = "C3D_RenderTarget")]
@@ -71,6 +103,12 @@ impl<S: Screen> Drop for RenderTarget<'_, S> {
         unsafe {
             C3D_RenderTargetDelete(self.raw);
         }
+    }
+}
+
+impl<S: Screen> fmt::Debug for RenderTarget<'_, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RenderTarget").finish_non_exhaustive()
     }
 }
 
@@ -115,6 +153,22 @@ impl<'screen, S: Screen> RenderTarget<'screen, S> {
         }
 
         Ok(Self {
+            raw,
+            _screen: screen,
+            _queue: queue,
+        })
+    }
+
+    pub(crate) unsafe fn from_raw(
+        raw: *mut citro3d_sys::C3D_RenderTarget_tag,
+        screen: RefMut<'screen, S>,
+        queue: Rc<RenderQueue>,
+    ) -> Result<Self> {
+        if raw.is_null() {
+            return Err(Error::FailedToInitialize);
+        }
+
+        Ok(RenderTarget {
             raw,
             _screen: screen,
             _queue: queue,
