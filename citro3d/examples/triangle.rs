@@ -65,19 +65,19 @@ fn main() {
     let (mut top_left, mut top_right) = top_screen.split_mut();
 
     let RawFrameBuffer { width, height, .. } = top_left.raw_framebuffer();
-    let mut top_left_target: ScreenTarget<'_> = instance
+    let mut top_left_target = instance
         .create_screen_target(width, height, top_left, None)
         .expect("failed to create render target");
 
     let RawFrameBuffer { width, height, .. } = top_right.raw_framebuffer();
-    let mut top_right_target: ScreenTarget<'_> = instance
+    let mut top_right_target = instance
         .create_screen_target(width, height, top_right, None)
         .expect("failed to create render target");
 
     let mut bottom_screen = gfx.bottom_screen.borrow_mut();
     let RawFrameBuffer { width, height, .. } = bottom_screen.raw_framebuffer();
 
-    let mut bottom_target: ScreenTarget<'_> = instance
+    let mut bottom_target = instance
         .create_screen_target(width, height, bottom_screen, None)
         .expect("failed to create bottom screen render target");
 
@@ -129,15 +129,26 @@ fn main() {
                     center,
                 } = calculate_projections();
 
+                // Render top left
                 render_to(instance, &mut top_left_target, &left_eye);
+
+                // Switch to top right and deactivate top left
                 let (top_left_target, mut top_right_target) = instance
                     .swap_render_target(top_left_target, top_right_target)
                     .expect("failed to set render target");
+
+                // Render top right
                 render_to(instance, &mut top_right_target, &right_eye);
+
+                // Switch to bottom and deactivate top right
                 let (top_right_target, mut bottom_target) = instance
                     .swap_render_target(top_right_target, bottom_target)
                     .expect("failed to set render target");
+
+                // Render bottom
                 render_to(instance, &mut bottom_target, &center);
+
+                // Return active and inactive targets
                 (bottom_target, (top_left_target, top_right_target))
             })
             .expect("failed to set render target");
