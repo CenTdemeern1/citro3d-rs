@@ -7,7 +7,7 @@ use citro3d::math::{
     AspectRatio, ClipPlanes, CoordinateOrientation, FVec3, Matrix4, Projection, StereoDisplacement,
 };
 use citro3d::render::{ClearFlags, RenderTarget};
-use citro3d::{Instance, attrib, buffer, render, shader, texenv};
+use citro3d::{Instance, attrib, buffer, shader, texenv};
 use ctru::prelude::*;
 use ctru::services::gfx::{RawFrameBuffer, Screen, TopScreen3D};
 
@@ -160,9 +160,9 @@ fn main() {
 
         (bottom_target, (top_left_target, top_right_target)) = instance
             .render_to_target(top_left_target, |instance, mut top_left_target| {
-                let mut render_to = |instance: &mut Instance,
-                                     target: &mut RenderTarget<'_>,
-                                     projection| {
+                let render_to = |instance: &mut Instance,
+                                 target: &mut RenderTarget<'_>,
+                                 projection| {
                     target.clear(ClearFlags::ALL, CLEAR_COLOR, 0);
 
                     instance

@@ -375,7 +375,7 @@ fn main() {
 
         (bottom_target, (top_left_target, top_right_target)) = instance
             .render_to_target(top_left_target, |instance, mut top_left_target| {
-                let mut render_to =
+                let render_to =
                     |instance: &mut Instance, target: &mut RenderTarget<'_>, projection| {
                         target.clear(ClearFlags::ALL, 0, 0);
 
