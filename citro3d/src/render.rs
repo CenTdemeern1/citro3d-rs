@@ -22,6 +22,7 @@ mod transfer;
 // The inner RenderTarget is private to not make it unavailable to the user
 // outside of the rendering state in safe contexts
 #[doc(alias = "C3D_RenderTarget")]
+#[derive(Debug)]
 pub struct ScreenTarget<'screen>(RenderTarget<'screen>);
 
 impl<'screen> ScreenTarget<'screen> {
@@ -77,12 +78,6 @@ impl<'screen> From<RenderTarget<'screen>> for ScreenTarget<'screen> {
     /// "Closes" the RenderTarget and turns it back into a ScreenTarget.
     fn from(value: RenderTarget<'screen>) -> Self {
         ScreenTarget(value)
-    }
-}
-
-impl fmt::Debug for ScreenTarget<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ScreenTarget").finish_non_exhaustive()
     }
 }
 

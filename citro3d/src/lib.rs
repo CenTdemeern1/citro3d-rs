@@ -56,25 +56,26 @@ mod private {
 
 /// The single instance for using `citro3d`. This is the base type that an application
 /// should instantiate to use this library.
-#[non_exhaustive]
+///
+/// # The render queue and deinitialization
+///
+/// Dropping the Instance will not immediately deinitialize Citro3D.
+///
+/// It, and the internal render queue, are deinitialized when all references to the
+/// render queue have been dropped.
+///
+/// The types that hold a reference to the render queue are:
+/// - [Instance]
+/// - [RenderInstance]
+/// - [ScreenTarget]
+/// - [RenderTarget]
+/// This means that, to deinitialize Citro3D, you should drop your targets as well
+/// as the instance.
+///
+/// To check whether Citro3D is initialized, use [`is_initialized`].
 #[must_use]
-pub struct Instance {
-    texenvs: [OnceCell<TexEnv>; texenv::TEXENV_COUNT],
-    queue: Rc<RenderQueue>,
-    light_env: Option<Pin<Box<LightEnv>>>,
-}
-
-/// Representation of `citro3d`'s internal render queue. This is something that
-/// lives in the global context, but it keeps references to resources that are
-/// used for rendering, so it's useful for us to have something to represent its
-/// lifetime.
-struct RenderQueue;
-
-impl fmt::Debug for Instance {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Instance").finish_non_exhaustive()
-    }
-}
+#[derive(Debug)]
+pub struct Instance(RenderInstance);
 
 impl Instance {
     /// Initialize the default `citro3d` instance.
@@ -93,15 +94,25 @@ impl Instance {
     /// Fails if `citro3d` cannot be initialized.
     #[doc(alias = "C3D_Init")]
     pub fn with_cmdbuf_size(size: usize) -> Result<Self> {
-        if unsafe { citro3d_sys::C3D_Init(size) } {
-            Ok(Self {
-                texenvs: Default::default(),
-                queue: Rc::new(RenderQueue),
-                light_env: None,
-            })
-        } else {
-            Err(Error::FailedToInitialize)
-        }
+        Ok(Instance(unsafe { RenderInstance::with_cmdbuf_size(size) }?))
+    }
+
+    /// Get the inner [RenderInstance].
+    /// You usually want to call [`render_to_target`](Self::render_to_target) instead.
+    pub unsafe fn into_inner(self) -> RenderInstance {
+        self.0
+    }
+
+    /// Get a mutable reference to the inner [RenderInstance].
+    /// You usually want to call [`render_to_target`](Self::render_to_target) instead.
+    pub unsafe fn get_inner_mut(&mut self) -> &mut RenderInstance {
+        &mut self.0
+    }
+
+    /// Get an immutable reference to the inner [RenderInstance].
+    /// You usually want to call [`render_to_target`](Self::render_to_target) instead.
+    pub unsafe fn get_inner_ref(&self) -> &RenderInstance {
+        &self.0
     }
 
     /// Create a new render target with the specified size, color format,
@@ -119,7 +130,13 @@ impl Instance {
         screen: RefMut<'screen, dyn Screen>,
         depth_format: Option<render::DepthFormat>,
     ) -> Result<ScreenTarget<'screen>> {
-        ScreenTarget::new(width, height, screen, depth_format, Rc::clone(&self.queue))
+        ScreenTarget::new(
+            width,
+            height,
+            screen,
+            depth_format,
+            Rc::clone(&self.0.queue),
+        )
     }
 
     pub unsafe fn create_screen_target_from_raw<'screen>(
@@ -127,7 +144,7 @@ impl Instance {
         raw: *mut citro3d_sys::C3D_RenderTarget_tag,
         screen: RefMut<'screen, dyn Screen>,
     ) -> Result<ScreenTarget<'screen>> {
-        unsafe { ScreenTarget::from_raw(raw, screen, Rc::clone(&self.queue)) }
+        unsafe { ScreenTarget::from_raw(raw, screen, Rc::clone(&self.0.queue)) }
     }
 
     /// Render a frame.
@@ -144,18 +161,18 @@ impl Instance {
         f: F,
     ) -> Result<(ScreenTarget<'screen2>, T)>
     where
-        F: FnOnce(&mut Self, RenderTarget<'screen>) -> (RenderTarget<'screen2>, T),
+        F: FnOnce(&mut RenderInstance, RenderTarget<'screen>) -> (RenderTarget<'screen2>, T),
     {
         let render_target = unsafe {
             citro3d_sys::C3D_FrameBegin(
                 // TODO: begin + end flags should be configurable
                 citro3d_sys::C3D_FRAME_SYNCDRAW,
             );
-            self.set_render_target(&screen_target)?;
+            self.0.set_render_target(&screen_target)?;
             screen_target.into_inner()
         };
 
-        let (render_target, returns) = f(self, render_target);
+        let (render_target, returns) = f(&mut self.0, render_target);
 
         unsafe {
             citro3d_sys::C3D_FrameEnd(0);
@@ -165,7 +182,52 @@ impl Instance {
     }
 }
 
-impl Instance {
+/// An [Instance] in a rendering state.
+/// Is able to perform operations related to rendering.
+///
+/// This struct has a reference to the render queue.
+#[non_exhaustive]
+pub struct RenderInstance {
+    texenvs: [OnceCell<TexEnv>; texenv::TEXENV_COUNT],
+    queue: Rc<RenderQueue>,
+    light_env: Option<Pin<Box<LightEnv>>>,
+}
+
+impl fmt::Debug for RenderInstance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RenderInstance").finish_non_exhaustive()
+    }
+}
+
+/// Representation of `citro3d`'s internal render queue. This is something that
+/// lives in the global context, but it keeps references to resources that are
+/// used for rendering, so it's useful for us to have something to represent its
+/// lifetime.
+struct RenderQueue;
+
+impl RenderInstance {
+    /// Creates a new RenderInstance unsafely.
+    ///
+    /// This function is essentially useless outside of this crate,
+    /// even in an unsafe context, because using the RenderInstance
+    /// effectively requires creating a target using the relevant
+    /// functions on [Instance]. This is why it's `pub(crate)`.
+    ///
+    /// To get a RenderInstance unsafely, you'd want to use
+    /// [Instance::into_inner] or [Instance::get_inner_mut]
+    #[doc(alias = "C3D_Init")]
+    pub(crate) unsafe fn with_cmdbuf_size(size: usize) -> Result<Self> {
+        if unsafe { citro3d_sys::C3D_Init(size) } {
+            Ok(Self {
+                texenvs: Default::default(),
+                queue: Rc::new(RenderQueue),
+                light_env: None,
+            })
+        } else {
+            Err(Error::FailedToInitialize)
+        }
+    }
+
     /// Change the render target for drawing the frame.
     /// This will activate the `new_target` (turning it into a [RenderTarget])
     /// and deactivate the `old_target` (turning it into a [ScreenTarget]).
@@ -382,14 +444,8 @@ impl Instance {
     }
 }
 
-// This only exists to be an alias, which admittedly is kinda silly. The default
-// impl should be equivalent though, since RenderQueue has a drop impl too.
-impl Drop for Instance {
-    #[doc(alias = "C3D_Fini")]
-    fn drop(&mut self) {}
-}
-
 impl Drop for RenderQueue {
+    #[doc(alias = "C3D_Fini")]
     fn drop(&mut self) {
         unsafe {
             citro3d_sys::C3D_Fini();
