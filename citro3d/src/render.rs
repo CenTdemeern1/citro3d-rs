@@ -25,6 +25,12 @@ mod transfer;
 /// The counterpart available during rendering is [`RenderTarget`].
 ///
 /// This struct has a reference to the [render queue](Instance#the-render-queue-and-deinitialization).
+///
+/// # Dropping a target
+///
+/// It is not advised to drop any owned targets while rendering as this
+/// will **panic and abort the process** via <code>[svcBreak](ctru_sys::svcBreak)([USERBREAK_PANIC](ctru_sys::USERBREAK_PANIC))</code>.
+/// This behavior is part of `citro3d`.
 // The inner RenderTarget is private to not make it unavailable to the user
 // outside of the rendering state in safe contexts
 #[doc(alias = "C3D_RenderTarget")]
@@ -93,6 +99,12 @@ impl<'screen> From<RenderTarget<'screen>> for ScreenTarget<'screen> {
 /// The counterpart available outside of rendering is [`ScreenTarget`].
 ///
 /// This struct has a reference to the [render queue](Instance#the-render-queue-and-deinitialization).
+///
+/// # Dropping a target
+///
+/// It is not advised to drop any owned targets while rendering as this
+/// will **panic and abort the process** via <code>[svcBreak](ctru_sys::svcBreak)([USERBREAK_PANIC](ctru_sys::USERBREAK_PANIC))</code>.
+/// This behavior is part of `citro3d`.
 #[doc(alias = "C3D_RenderTarget")]
 pub struct RenderTarget<'screen> {
     raw: *mut citro3d_sys::C3D_RenderTarget,
