@@ -11,14 +11,20 @@ use ctru::services::gfx::Screen;
 use ctru::services::gspgpu::FramebufferFormat;
 use ctru_sys::{GPU_COLORBUF, GPU_DEPTHBUF};
 
+#[cfg(doc)]
+use crate::Instance;
 use crate::{Error, RenderQueue, Result};
 
 pub mod effect;
 mod transfer;
 
-/// A Citro3D target bound to a screen that's not currently rendering.
+/// A `citro3d` target bound to a screen that's not currently rendering.
 ///
 /// To start rendering to this target, use [`Instance::render_to_target`].
+///
+/// The counterpart available during rendering is [`RenderTarget`].
+///
+/// This struct has a reference to the [render queue](Instance#the-render-queue-and-deinitialization).
 // The inner RenderTarget is private to not make it unavailable to the user
 // outside of the rendering state in safe contexts
 #[doc(alias = "C3D_RenderTarget")]
@@ -72,10 +78,10 @@ impl<'screen> ScreenTarget<'screen> {
 }
 
 impl<'screen> From<RenderTarget<'screen>> for ScreenTarget<'screen> {
-    /// Unless you called [ScreenTarget::into_inner] before, calling this
+    /// Unless you called [`ScreenTarget::into_inner`] before, calling this
     /// is almost cartainly a mistake.
     ///
-    /// "Closes" the RenderTarget and turns it back into a ScreenTarget.
+    /// "Closes" the [`RenderTarget`] and turns it back into a [`ScreenTarget`].
     fn from(value: RenderTarget<'screen>) -> Self {
         ScreenTarget(value)
     }
@@ -83,6 +89,10 @@ impl<'screen> From<RenderTarget<'screen>> for ScreenTarget<'screen> {
 
 /// A render target for `citro3d`. Frame data will be written to this target
 /// to be rendered on the GPU and displayed on the screen.
+///
+/// The counterpart available outside of rendering is [`ScreenTarget`].
+///
+/// This struct has a reference to the [render queue](Instance#the-render-queue-and-deinitialization).
 #[doc(alias = "C3D_RenderTarget")]
 pub struct RenderTarget<'screen> {
     raw: *mut citro3d_sys::C3D_RenderTarget,
@@ -109,8 +119,8 @@ impl fmt::Debug for RenderTarget<'_> {
 
 impl<'screen> RenderTarget<'screen> {
     /// Create a new render target with the given parameters. This takes a
-    /// [`RenderQueue`] parameter to make sure this [`Target`] doesn't outlive
-    /// the render queue.
+    /// [`RenderQueue`] parameter to make sure this [`RenderTarget`] doesn't
+    /// outlive the render queue.
     pub(crate) fn new(
         width: usize,
         height: usize,

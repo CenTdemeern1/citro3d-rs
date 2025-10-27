@@ -58,18 +58,23 @@ mod private {
 /// The single instance for using `citro3d`. This is the base type that an application
 /// should instantiate to use this library.
 ///
+/// The counterpart available during rendering is [`RenderInstance`].
+///
+/// This struct has a reference to the render queue. (see next section)
+///
 /// # The render queue and deinitialization
 ///
-/// Dropping the Instance will not immediately deinitialize Citro3D.
+/// Dropping the instance will not immediately deinitialize Citro3D.
 ///
 /// It, and the internal render queue, are deinitialized when all references to the
 /// render queue have been dropped.
 ///
 /// The types that hold a reference to the render queue are:
-/// - [Instance]
-/// - [RenderInstance]
-/// - [ScreenTarget]
-/// - [RenderTarget]
+/// - [`Instance`]
+/// - [`RenderInstance`]
+/// - [`ScreenTarget`]
+/// - [`RenderTarget`]
+///
 /// This means that, to deinitialize Citro3D, you should drop your targets as well
 /// as the instance.
 #[must_use]
@@ -96,19 +101,19 @@ impl Instance {
         Ok(Instance(unsafe { RenderInstance::with_cmdbuf_size(size) }?))
     }
 
-    /// Get the inner [RenderInstance].
+    /// Get the inner [`RenderInstance`].
     /// You usually want to call [`render_to_target`](Self::render_to_target) instead.
     pub unsafe fn into_inner(self) -> RenderInstance {
         self.0
     }
 
-    /// Get a mutable reference to the inner [RenderInstance].
+    /// Get a mutable reference to the inner [`RenderInstance`].
     /// You usually want to call [`render_to_target`](Self::render_to_target) instead.
     pub unsafe fn get_inner_mut(&mut self) -> &mut RenderInstance {
         &mut self.0
     }
 
-    /// Get an immutable reference to the inner [RenderInstance].
+    /// Get an immutable reference to the inner [`RenderInstance`].
     /// You usually want to call [`render_to_target`](Self::render_to_target) instead.
     pub unsafe fn get_inner_ref(&self) -> &RenderInstance {
         &self.0
@@ -148,8 +153,8 @@ impl Instance {
 
     /// Render a frame.
     ///
-    /// The passed in function/closure will receive a [RenderInstance]
-    /// and [RenderTarget] to grant the ability to render things.
+    /// The passed in function/closure will receive a [`RenderInstance`]
+    /// and [`RenderTarget`] to grant the ability to render things.
     /// It must also return the RenderTarget afterwards.
     #[doc(alias = "C3D_FrameBegin")]
     #[doc(alias = "C3D_FrameDrawOn")]
@@ -181,10 +186,10 @@ impl Instance {
     }
 }
 
-/// An [Instance] in a rendering state.
+/// An [`Instance`] in a rendering state.
 /// Is able to perform operations related to rendering.
 ///
-/// This struct has a reference to the render queue.
+/// This struct has a reference to the [render queue](Instance#the-render-queue-and-deinitialization).
 #[non_exhaustive]
 pub struct RenderInstance {
     texenvs: [OnceCell<TexEnv>; texenv::TEXENV_COUNT],
@@ -210,10 +215,10 @@ impl RenderInstance {
     /// This function is essentially useless outside of this crate,
     /// even in an unsafe context, because using the RenderInstance
     /// effectively requires creating a target using the relevant
-    /// functions on [Instance]. This is why it's `pub(crate)`.
+    /// functions on [`Instance`]. This is why it's `pub(crate)`.
     ///
     /// To get a RenderInstance unsafely, you'd want to use
-    /// [Instance::into_inner] or [Instance::get_inner_mut]
+    /// [`Instance::into_inner`] or [`Instance::get_inner_mut`]
     #[doc(alias = "C3D_Init")]
     pub(crate) unsafe fn with_cmdbuf_size(size: usize) -> Result<Self> {
         if unsafe { citro3d_sys::C3D_Init(size) } {
@@ -228,8 +233,8 @@ impl RenderInstance {
     }
 
     /// Change the render target for drawing the frame.
-    /// This will activate the `new_target` (turning it into a [RenderTarget])
-    /// and deactivate the `old_target` (turning it into a [ScreenTarget]).
+    /// This will activate the `new_target` (turning it into a [`RenderTarget`])
+    /// and deactivate the `old_target` (turning it into a [`ScreenTarget`]).
     ///
     /// # Errors
     ///
@@ -252,7 +257,7 @@ impl RenderInstance {
     /// Sets the active render target.
     ///
     /// This function is unsafe because it doesn't deactivate the previous render target.
-    /// You probably want to use [swap_render_target](Self::swap_render_target) instead.
+    /// You probably want to use [`swap_render_target`](Self::swap_render_target) instead.
     ///
     /// # Errors
     ///

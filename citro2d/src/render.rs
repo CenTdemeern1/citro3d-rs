@@ -34,10 +34,10 @@ impl From<Color> for u32 {
 }
 
 pub trait TargetExt {
-    /// Clears the screen to a specific [Color]
+    /// Clears the screen to a specific [`Color`].
     fn clear_with_color(&mut self, color: Color);
 
-    /// Renders a 2d shape to the [Target]
+    /// Renders a 2D shape to the [`RenderTarget`].
     fn render_2d_shape(&mut self, shape: &impl Shape);
 }
 
@@ -48,7 +48,6 @@ impl TargetExt for RenderTarget<'_> {
         }
     }
 
-    /// Renders a 2d shape to the [Target]
     fn render_2d_shape(&mut self, shape: &impl Shape) {
         shape.render(self);
     }

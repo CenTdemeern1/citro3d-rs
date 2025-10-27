@@ -89,7 +89,7 @@ impl Instance {
         }
     }
 
-    /// Render 2d graphics to a selected [Target]
+    /// Render 2D graphics to a selected [`ScreenTarget`].
     #[doc(alias = "C3D_FrameBegin")]
     #[doc(alias = "C2D_SceneBegin")]
     #[doc(alias = "C3D_FrameEnd")]
