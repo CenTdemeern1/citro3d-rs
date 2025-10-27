@@ -2,7 +2,7 @@
 use std::f32::consts::PI;
 
 use citro3d::{
-    Instance, RenderInstance, attrib, buffer,
+    Instance, InstanceCommon, RenderInstance, attrib, buffer,
     color::Color,
     light::{DistanceAttenuation, LightEnv, Lut, LutId, LutInput, Material, Spotlight},
     math::{AspectRatio, ClipPlanes, FVec3, Matrix4, Projection, StereoDisplacement},

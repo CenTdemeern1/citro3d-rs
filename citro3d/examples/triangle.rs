@@ -6,7 +6,7 @@
 use citro3d::macros::include_shader;
 use citro3d::math::{AspectRatio, ClipPlanes, Matrix4, Projection, StereoDisplacement};
 use citro3d::render::{ClearFlags, RenderTarget};
-use citro3d::{Instance, RenderInstance, texenv};
+use citro3d::{Instance, InstanceCommon, RenderInstance, texenv};
 use citro3d::{attrib, buffer, shader};
 use ctru::prelude::*;
 use ctru::services::gfx::{RawFrameBuffer, Screen, TopScreen3D};

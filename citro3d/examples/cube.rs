@@ -7,7 +7,7 @@ use citro3d::math::{
     AspectRatio, ClipPlanes, CoordinateOrientation, FVec3, Matrix4, Projection, StereoDisplacement,
 };
 use citro3d::render::{ClearFlags, RenderTarget};
-use citro3d::{Instance, RenderInstance, attrib, buffer, shader, texenv};
+use citro3d::{Instance, InstanceCommon, RenderInstance, attrib, buffer, shader, texenv};
 use ctru::prelude::*;
 use ctru::services::gfx::{RawFrameBuffer, Screen, TopScreen3D};
 
