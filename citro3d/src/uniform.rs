@@ -4,7 +4,7 @@
 use std::ops::Range;
 
 use crate::math::{FVec4, IVec, Matrix4};
-use crate::{Instance, shader};
+use crate::{RenderInstance, shader};
 
 /// The index of a uniform within a [`shader::Program`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -75,7 +75,7 @@ impl Uniform {
     ///
     /// Note: `_instance` is here to ensure unique access to the global uniform buffers
     /// otherwise we could race and/or violate aliasing
-    pub(crate) fn bind(self, _instance: &mut Instance, ty: shader::Type, index: Index) {
+    pub(crate) fn bind(self, _instance: &mut RenderInstance, ty: shader::Type, index: Index) {
         assert!(
             self.index_range().contains(&index),
             "tried to bind uniform to an invalid index (index: {:?}, valid range: {:?})",

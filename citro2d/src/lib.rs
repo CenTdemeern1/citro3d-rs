@@ -101,7 +101,10 @@ impl Instance {
     where
         S: Screen + 'screen,
         S2: Screen + 'screen2,
-        F: FnOnce(&mut citro3d::Instance, RenderTarget<'screen>) -> (RenderTarget<'screen2>, T),
+        F: FnOnce(
+            &mut citro3d::RenderInstance,
+            RenderTarget<'screen>,
+        ) -> (RenderTarget<'screen2>, T),
     {
         self.citro3d_instance
             .render_to_target(screen_target, |render_instance, render_target| {

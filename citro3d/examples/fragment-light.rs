@@ -2,7 +2,7 @@
 use std::f32::consts::PI;
 
 use citro3d::{
-    Instance, attrib, buffer,
+    Instance, RenderInstance, attrib, buffer,
     color::Color,
     light::{DistanceAttenuation, LightEnv, Lut, LutId, LutInput, Material, Spotlight},
     math::{AspectRatio, ClipPlanes, FVec3, Matrix4, Projection, StereoDisplacement},
@@ -376,7 +376,7 @@ fn main() {
         (bottom_target, (top_left_target, top_right_target)) = instance
             .render_to_target(top_left_target, |instance, mut top_left_target| {
                 let render_to =
-                    |instance: &mut Instance, target: &mut RenderTarget<'_>, projection| {
+                    |instance: &mut RenderInstance, target: &mut RenderTarget<'_>, projection| {
                         target.clear(ClearFlags::ALL, 0, 0);
 
                         instance.bind_vertex_uniform(projection_uniform_idx, projection);

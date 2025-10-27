@@ -41,6 +41,7 @@ use self::buffer::{Index, Indices};
 use self::light::LightEnv;
 use self::texenv::TexEnv;
 use self::uniform::Uniform;
+use crate::private::Sealed;
 use crate::render::{RenderTarget, ScreenTarget};
 
 pub mod macros {
@@ -71,8 +72,6 @@ mod private {
 /// - [RenderTarget]
 /// This means that, to deinitialize Citro3D, you should drop your targets as well
 /// as the instance.
-///
-/// To check whether Citro3D is initialized, use [`is_initialized`].
 #[must_use]
 #[derive(Debug)]
 pub struct Instance(RenderInstance);
@@ -267,38 +266,6 @@ impl RenderInstance {
         }
     }
 
-    /// Get the buffer info being used, if it exists. Note that the resulting
-    /// [`buffer::Info`] is copied from the one currently in use.
-    #[doc(alias = "C3D_GetBufInfo")]
-    pub fn buffer_info(&self) -> Option<buffer::Info> {
-        let raw = unsafe { citro3d_sys::C3D_GetBufInfo() };
-        buffer::Info::copy_from(raw)
-    }
-
-    /// Set the buffer info to use for any following draw calls.
-    #[doc(alias = "C3D_SetBufInfo")]
-    pub fn set_buffer_info(&mut self, buffer_info: &buffer::Info) {
-        let raw: *const _ = &buffer_info.0;
-        // SAFETY: C3D_SetBufInfo actually copies the pointee instead of mutating it.
-        unsafe { citro3d_sys::C3D_SetBufInfo(raw.cast_mut()) };
-    }
-
-    /// Get the attribute info being used, if it exists. Note that the resulting
-    /// [`attrib::Info`] is copied from the one currently in use.
-    #[doc(alias = "C3D_GetAttrInfo")]
-    pub fn attr_info(&self) -> Option<attrib::Info> {
-        let raw = unsafe { citro3d_sys::C3D_GetAttrInfo() };
-        attrib::Info::copy_from(raw)
-    }
-
-    /// Set the attribute info to use for any following draw calls.
-    #[doc(alias = "C3D_SetAttrInfo")]
-    pub fn set_attr_info(&mut self, attr_info: &attrib::Info) {
-        let raw: *const _ = &attr_info.0;
-        // SAFETY: C3D_SetAttrInfo actually copies the pointee instead of mutating it.
-        unsafe { citro3d_sys::C3D_SetAttrInfo(raw.cast_mut()) };
-    }
-
     /// Render primitives from the current vertex array buffer.
     #[doc(alias = "C3D_DrawArrays")]
     pub fn draw_arrays(&mut self, primitive: buffer::Primitive, vbo_data: buffer::Slice) {
@@ -313,6 +280,7 @@ impl RenderInstance {
             );
         }
     }
+
     /// Indexed drawing
     ///
     /// Draws the vertices in `buf` indexed by `indices`. `indices` must be linearly allocated
@@ -347,9 +315,176 @@ impl RenderInstance {
             );
         }
     }
+}
+
+impl Drop for RenderQueue {
+    #[doc(alias = "C3D_Fini")]
+    fn drop(&mut self) {
+        unsafe {
+            citro3d_sys::C3D_Fini();
+        }
+    }
+}
+
+pub trait InstanceCommon: Sealed {
+    /// Get the buffer info being used, if it exists. Note that the resulting
+    /// [`buffer::Info`] is copied from the one currently in use.
+    #[doc(alias = "C3D_GetBufInfo")]
+    fn get_buffer_info(&self) -> Option<buffer::Info>;
+
+    /// Set the buffer info to use for any following draw calls.
+    #[doc(alias = "C3D_SetBufInfo")]
+    fn set_buffer_info(&mut self, buffer_info: &buffer::Info);
+
+    /// Get the attribute info being used, if it exists. Note that the resulting
+    /// [`attrib::Info`] is copied from the one currently in use.
+    #[doc(alias = "C3D_GetAttrInfo")]
+    fn get_attr_info(&self) -> Option<attrib::Info>;
+
+    /// Set the attribute info to use for any following draw calls.
+    #[doc(alias = "C3D_SetAttrInfo")]
+    fn set_attr_info(&mut self, attr_info: &attrib::Info);
 
     /// Use the given [`shader::Program`] for subsequent draw calls.
-    pub fn bind_program(&mut self, program: &shader::Program) {
+    #[doc(alias = "C3D_BindProgram")]
+    fn bind_program(&mut self, program: &shader::Program);
+
+    /// Binds a new [`LightEnv`], returning the previous one (if present).
+    #[doc(alias = "C3D_LightEnvBind")]
+    fn bind_light_env(&mut self, new_env: Option<Pin<Box<LightEnv>>>)
+    -> Option<Pin<Box<LightEnv>>>;
+
+    /// Returns an immutable reference to the [`LightEnv`].
+    fn light_env(&self) -> Option<Pin<&LightEnv>>;
+
+    /// Returns a mutable reference to the [`LightEnv`].
+    fn light_env_mut(&mut self) -> Option<Pin<&mut LightEnv>>;
+
+    /// Bind a uniform to the given `index` in the vertex shader for the next draw call.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # let _runner = test_runner::GdbRunner::default();
+    /// # use citro3d::uniform;
+    /// # use citro3d::math::Matrix4;
+    /// #
+    /// # let mut instance = citro3d::Instance::new().unwrap();
+    /// let idx = uniform::Index::from(0);
+    /// let mtx = Matrix4::identity();
+    /// instance.bind_vertex_uniform(idx, &mtx);
+    /// ```
+    fn bind_vertex_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>);
+
+    /// Bind a uniform to the given `index` in the geometry shader for the next draw call.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # let _runner = test_runner::GdbRunner::default();
+    /// # use citro3d::uniform;
+    /// # use citro3d::math::Matrix4;
+    /// #
+    /// # let mut instance = citro3d::Instance::new().unwrap();
+    /// let idx = uniform::Index::from(0);
+    /// let mtx = Matrix4::identity();
+    /// instance.bind_geometry_uniform(idx, &mtx);
+    /// ```
+    fn bind_geometry_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>);
+
+    /// Retrieve the [`TexEnv`] for the given stage, initializing it first if necessary.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use citro3d::texenv;
+    /// # let _runner = test_runner::GdbRunner::default();
+    /// # let mut instance = citro3d::Instance::new().unwrap();
+    /// let stage0 = texenv::Stage::new(0).unwrap();
+    /// let texenv0 = instance.texenv(stage0);
+    /// ```
+    #[doc(alias = "C3D_GetTexEnv")]
+    #[doc(alias = "C3D_TexEnvInit")]
+    fn texenv(&mut self, stage: texenv::Stage) -> &mut texenv::TexEnv;
+}
+
+impl Sealed for Instance {}
+// This is essentially just a passthrough for methods that
+// can safely be called both inside and outside of rendering.
+impl InstanceCommon for Instance {
+    fn get_buffer_info(&self) -> Option<buffer::Info> {
+        self.0.get_buffer_info()
+    }
+
+    fn set_buffer_info(&mut self, buffer_info: &buffer::Info) {
+        self.0.set_buffer_info(buffer_info);
+    }
+
+    fn get_attr_info(&self) -> Option<attrib::Info> {
+        self.0.get_attr_info()
+    }
+
+    fn set_attr_info(&mut self, attr_info: &attrib::Info) {
+        self.0.set_attr_info(attr_info);
+    }
+
+    fn bind_program(&mut self, program: &shader::Program) {
+        self.0.bind_program(program);
+    }
+
+    fn bind_light_env(
+        &mut self,
+        new_env: Option<Pin<Box<LightEnv>>>,
+    ) -> Option<Pin<Box<LightEnv>>> {
+        self.0.bind_light_env(new_env)
+    }
+
+    fn light_env(&self) -> Option<Pin<&LightEnv>> {
+        self.0.light_env()
+    }
+
+    fn light_env_mut(&mut self) -> Option<Pin<&mut LightEnv>> {
+        self.0.light_env_mut()
+    }
+
+    fn bind_vertex_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>) {
+        self.0.bind_vertex_uniform(index, uniform);
+    }
+
+    fn bind_geometry_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>) {
+        self.0.bind_geometry_uniform(index, uniform);
+    }
+
+    fn texenv(&mut self, stage: texenv::Stage) -> &mut texenv::TexEnv {
+        self.0.texenv(stage)
+    }
+}
+
+impl Sealed for RenderInstance {}
+impl InstanceCommon for RenderInstance {
+    fn get_buffer_info(&self) -> Option<buffer::Info> {
+        let raw = unsafe { citro3d_sys::C3D_GetBufInfo() };
+        buffer::Info::copy_from(raw)
+    }
+
+    fn set_buffer_info(&mut self, buffer_info: &buffer::Info) {
+        let raw: *const _ = &buffer_info.0;
+        // SAFETY: C3D_SetBufInfo actually copies the pointee instead of mutating it.
+        unsafe { citro3d_sys::C3D_SetBufInfo(raw.cast_mut()) };
+    }
+
+    fn get_attr_info(&self) -> Option<attrib::Info> {
+        let raw = unsafe { citro3d_sys::C3D_GetAttrInfo() };
+        attrib::Info::copy_from(raw)
+    }
+
+    fn set_attr_info(&mut self, attr_info: &attrib::Info) {
+        let raw: *const _ = &attr_info.0;
+        // SAFETY: C3D_SetAttrInfo actually copies the pointee instead of mutating it.
+        unsafe { citro3d_sys::C3D_SetAttrInfo(raw.cast_mut()) };
+    }
+
+    fn bind_program(&mut self, program: &shader::Program) {
         // SAFETY: AFAICT C3D_BindProgram just copies pointers from the given program,
         // instead of mutating the pointee in any way that would cause UB
         unsafe {
@@ -357,8 +492,7 @@ impl RenderInstance {
         }
     }
 
-    /// Binds a new [`LightEnv`], returning the previous one (if present).
-    pub fn bind_light_env(
+    fn bind_light_env(
         &mut self,
         new_env: Option<Pin<Box<LightEnv>>>,
     ) -> Option<Pin<Box<LightEnv>>> {
@@ -378,78 +512,28 @@ impl RenderInstance {
         old_env
     }
 
-    pub fn light_env(&self) -> Option<Pin<&LightEnv>> {
+    fn light_env(&self) -> Option<Pin<&LightEnv>> {
         self.light_env.as_ref().map(|env| env.as_ref())
     }
 
-    pub fn light_env_mut(&mut self) -> Option<Pin<&mut LightEnv>> {
+    fn light_env_mut(&mut self) -> Option<Pin<&mut LightEnv>> {
         self.light_env.as_mut().map(|env| env.as_mut())
     }
 
-    /// Bind a uniform to the given `index` in the vertex shader for the next draw call.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # let _runner = test_runner::GdbRunner::default();
-    /// # use citro3d::uniform;
-    /// # use citro3d::math::Matrix4;
-    /// #
-    /// # let mut instance = citro3d::Instance::new().unwrap();
-    /// let idx = uniform::Index::from(0);
-    /// let mtx = Matrix4::identity();
-    /// instance.bind_vertex_uniform(idx, &mtx);
-    /// ```
-    pub fn bind_vertex_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>) {
+    fn bind_vertex_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>) {
         uniform.into().bind(self, shader::Type::Vertex, index);
     }
 
-    /// Bind a uniform to the given `index` in the geometry shader for the next draw call.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # let _runner = test_runner::GdbRunner::default();
-    /// # use citro3d::uniform;
-    /// # use citro3d::math::Matrix4;
-    /// #
-    /// # let mut instance = citro3d::Instance::new().unwrap();
-    /// let idx = uniform::Index::from(0);
-    /// let mtx = Matrix4::identity();
-    /// instance.bind_geometry_uniform(idx, &mtx);
-    /// ```
-    pub fn bind_geometry_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>) {
+    fn bind_geometry_uniform(&mut self, index: uniform::Index, uniform: impl Into<Uniform>) {
         uniform.into().bind(self, shader::Type::Geometry, index);
     }
 
-    /// Retrieve the [`TexEnv`] for the given stage, initializing it first if necessary.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use citro3d::texenv;
-    /// # let _runner = test_runner::GdbRunner::default();
-    /// # let mut instance = citro3d::Instance::new().unwrap();
-    /// let stage0 = texenv::Stage::new(0).unwrap();
-    /// let texenv0 = instance.texenv(stage0);
-    /// ```
-    #[doc(alias = "C3D_GetTexEnv")]
-    #[doc(alias = "C3D_TexEnvInit")]
-    pub fn texenv(&mut self, stage: texenv::Stage) -> &mut texenv::TexEnv {
+    fn texenv(&mut self, stage: texenv::Stage) -> &mut texenv::TexEnv {
         let texenv = &mut self.texenvs[stage.0];
         texenv.get_or_init(|| TexEnv::new(stage));
         // We have to do this weird unwrap to get a mutable reference,
         // since there is no `get_mut_or_init` or equivalent
         texenv.get_mut().unwrap()
-    }
-}
-
-impl Drop for RenderQueue {
-    #[doc(alias = "C3D_Fini")]
-    fn drop(&mut self) {
-        unsafe {
-            citro3d_sys::C3D_Fini();
-        }
     }
 }
 
