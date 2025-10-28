@@ -130,7 +130,8 @@ pub enum ColorFormat {
     #[doc(alias = "GPU_RGBA8")]
     Rgba8 = ctru_sys::GPU_RGBA8,
 
-    /// 8-bit Red + 8-bit Green + 8-bit Blue    #[doc(alias = "GPU_RGB8")]
+    /// 8-bit Red + 8-bit Green + 8-bit Blue
+    #[doc(alias = "GPU_RGB8")]
     Rgb8 = ctru_sys::GPU_RGB8,
 
     /// 5-bit Red + 5-bit Green + 5-bit Blue + 1-bit Alpha
