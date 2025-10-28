@@ -6,7 +6,7 @@
 
 use citro2d::Point;
 use citro2d::drawable::{Circle, CircleSolid, Ellipse, MultiColor, Rectangle, Triangle};
-use citro2d::render::{Color, RenderTarget, TargetExt};
+use citro2d::render::{Color, TargetExt};
 use ctru::{prelude::*, services::gfx::TopScreen3D};
 
 const SCREEN_WIDTH: u16 = 400;
