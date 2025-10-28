@@ -1,7 +1,46 @@
-//! Safe bindings to shapes supported by citro2d
+//! Safe bindings to citro2d drawables
+use std::ops::{ControlFlow, FromResidual, Try};
+
 use citro3d::render::RenderTarget;
 
 use crate::{Point, Size, render::Color};
+
+#[repr(u8)] // It's essentially just a bool
+pub enum DrawableResult {
+    Success = 1,
+    Failure = 0,
+}
+
+impl Try for DrawableResult {
+    type Output = ();
+    type Residual = DrawableResult;
+
+    fn from_output(_output: Self::Output) -> Self {
+        DrawableResult::Success
+    }
+
+    fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+        use ControlFlow::*;
+        use DrawableResult::*;
+        match self {
+            Success => Continue(()),
+            Failure => Break(Failure),
+        }
+    }
+}
+
+impl FromResidual for DrawableResult {
+    fn from_residual(residual: <Self as Try>::Residual) -> Self {
+        residual
+    }
+}
+
+impl From<bool> for DrawableResult {
+    fn from(value: bool) -> Self {
+        use DrawableResult::*;
+        if value { Success } else { Failure }
+    }
+}
 
 /// Holds information for rendering multi colored shapes
 /// most shapes have a 'solid'
@@ -12,10 +51,12 @@ pub struct MultiColor {
     pub bottom_right: Color,
 }
 
-/// A trait to help render all 2D shapes supported by citro2d
-pub trait Shape {
+/// A trait for renderable items.
+///
+/// You may implement this trait yourself to create composite/custom drawables.
+pub trait Drawable {
     //TODO possibly return Option<self>.
-    fn render(&self, target: &mut RenderTarget<'_>) -> bool;
+    fn render(&self, target: &mut RenderTarget<'_>) -> DrawableResult;
 }
 
 /// Holds information for rendering a C2D_DrawRectangle
@@ -25,10 +66,10 @@ pub struct Rectangle {
     pub multi_color: MultiColor,
 }
 
-impl Shape for Rectangle {
+impl Drawable for Rectangle {
     /// Draws a multi color rectangle
     #[doc(alias = "C2D_DrawRectangle")]
-    fn render(&self, _target: &mut RenderTarget<'_>) -> bool {
+    fn render(&self, _target: &mut RenderTarget<'_>) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawRectangle(
                 self.point.x,
@@ -42,6 +83,7 @@ impl Shape for Rectangle {
                 self.multi_color.bottom_right.into(),
             )
         }
+        .into()
     }
 }
 
@@ -52,10 +94,10 @@ pub struct RectangleSolid {
     pub color: Color,
 }
 
-impl Shape for RectangleSolid {
+impl Drawable for RectangleSolid {
     /// Draws a single colored Rectangle
     #[doc(alias = "C2D_DrawRectSolid")]
-    fn render(&self, _target: &mut RenderTarget) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawRectSolid(
                 self.point.x,
@@ -66,6 +108,7 @@ impl Shape for RectangleSolid {
                 self.color.into(),
             )
         }
+        .into()
     }
 }
 
@@ -80,10 +123,10 @@ pub struct Triangle {
     pub depth: f32,
 }
 
-impl Shape for Triangle {
+impl Drawable for Triangle {
     /// Draws a multi color Triangle
     #[doc(alias = "C2D_DrawTriangle")]
-    fn render(&self, _target: &mut RenderTarget) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawTriangle(
                 self.top.x,
@@ -98,6 +141,7 @@ impl Shape for Triangle {
                 self.depth,
             )
         }
+        .into()
     }
 }
 
@@ -108,10 +152,10 @@ pub struct Ellipse {
     pub multi_color: MultiColor,
 }
 
-impl Shape for Ellipse {
+impl Drawable for Ellipse {
     /// Draws a multi color Ellipse
     #[doc(alias = "C2D_DrawEllipse")]
-    fn render(&self, _target: &mut RenderTarget) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawEllipse(
                 self.point.x,
@@ -125,6 +169,7 @@ impl Shape for Ellipse {
                 self.multi_color.bottom_right.into(),
             )
         }
+        .into()
     }
 }
 
@@ -135,10 +180,10 @@ pub struct EllipseSolid {
     pub color: Color,
 }
 
-impl Shape for EllipseSolid {
+impl Drawable for EllipseSolid {
     ///Draws a solid color Ellipse
     #[doc(alias = "C2D_DrawEllipseSolid")]
-    fn render(&self, _target: &mut RenderTarget) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawEllipseSolid(
                 self.point.x,
@@ -149,6 +194,7 @@ impl Shape for EllipseSolid {
                 self.color.into(),
             )
         }
+        .into()
     }
 }
 /// Holds the information needed to draw a multi colored circle
@@ -158,10 +204,10 @@ pub struct Circle {
     pub multi_color: MultiColor,
 }
 
-impl Shape for Circle {
+impl Drawable for Circle {
     /// Draws a multi color Ellipse
     #[doc(alias = "C2D_DrawCircle")]
-    fn render(&self, _target: &mut RenderTarget) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawCircle(
                 self.point.x,
@@ -174,6 +220,7 @@ impl Shape for Circle {
                 self.multi_color.bottom_right.into(),
             )
         }
+        .into()
     }
 }
 
@@ -186,13 +233,14 @@ pub struct CircleSolid {
     pub color: Color,
 }
 
-impl Shape for CircleSolid {
+impl Drawable for CircleSolid {
     /// Renders a solid Circle
     #[doc(alias = "C2D_DrawCircleSolid")]
-    fn render(&self, _target: &mut RenderTarget) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawCircleSolid(self.x, self.y, self.z, self.radius, self.color.into())
         }
+        .into()
     }
 }
 
@@ -206,10 +254,10 @@ pub struct Line {
     pub depth: f32,
 }
 
-impl Shape for Line {
+impl Drawable for Line {
     /// Renders a line
     #[doc(alias = "C2D_DrawLine")]
-    fn render(&self, _target: &mut RenderTarget) -> bool {
+    fn render(&self, _target: &mut RenderTarget) -> DrawableResult {
         unsafe {
             citro2d_sys::C2D_DrawLine(
                 self.start.x,
@@ -222,5 +270,6 @@ impl Shape for Line {
                 self.depth,
             )
         }
+        .into()
     }
 }

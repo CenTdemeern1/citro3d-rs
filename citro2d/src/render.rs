@@ -1,6 +1,6 @@
 pub use citro3d::render::RenderTarget;
 
-use crate::shapes::Shape;
+use crate::drawable::{Drawable, DrawableResult};
 
 /// A color in RGBA format. The color is stored as a 32-bit integer
 #[derive(Debug, Clone, Copy)]
@@ -38,7 +38,7 @@ pub trait TargetExt {
     fn clear_with_color(&mut self, color: Color);
 
     /// Renders a 2D shape to the [`RenderTarget`].
-    fn render_2d_shape(&mut self, shape: &impl Shape);
+    fn render_drawable(&mut self, shape: &impl Drawable) -> DrawableResult;
 }
 
 impl TargetExt for RenderTarget<'_> {
@@ -48,7 +48,7 @@ impl TargetExt for RenderTarget<'_> {
         }
     }
 
-    fn render_2d_shape(&mut self, shape: &impl Shape) {
-        shape.render(self);
+    fn render_drawable(&mut self, shape: &impl Drawable) -> DrawableResult {
+        shape.render(self)
     }
 }

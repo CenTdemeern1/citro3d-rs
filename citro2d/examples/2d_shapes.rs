@@ -5,8 +5,8 @@
 #![feature(allocator_api)]
 
 use citro2d::Point;
+use citro2d::drawable::{Circle, CircleSolid, Ellipse, MultiColor, Rectangle, Triangle};
 use citro2d::render::{Color, RenderTarget, TargetExt};
-use citro2d::shapes::{Circle, CircleSolid, Ellipse, MultiColor, Rectangle, Triangle};
 use ctru::{prelude::*, services::gfx::TopScreen3D};
 
 const SCREEN_WIDTH: u16 = 400;
@@ -44,76 +44,80 @@ fn main() {
     while apt.main_loop() {
         hid.scan_input();
 
-        citro2d_instance.render_to_target(&mut top_target, |_instance, render_target| {
-            render_target.clear_with_color(clr_clear);
+        (top_target, ()) = citro2d_instance
+            .render_to_target(top_target, |_instance, mut render_target| {
+                render_target.clear_with_color(clr_clear);
 
-            render_target.render_2d_shape(&Triangle {
-                top: (25.0, 190.0).into(),
-                top_color: clr_white,
-                left: (0.0, SCREEN_HEIGHT as f32).into(),
-                left_color: clr_tri1,
-                right: (50.0, SCREEN_HEIGHT as f32).into(),
-                right_color: clr_tri2,
-                depth: 0.0,
-            });
+                render_target.render_drawable(&Triangle {
+                    top: (25.0, 190.0).into(),
+                    top_color: clr_white,
+                    left: (0.0, SCREEN_HEIGHT as f32).into(),
+                    left_color: clr_tri1,
+                    right: (50.0, SCREEN_HEIGHT as f32).into(),
+                    right_color: clr_tri2,
+                    depth: 0.0,
+                });
 
-            render_target.render_2d_shape(&Rectangle {
-                point: Point::new(350.0, 0.0, 0.0),
-                size: (50.0, 50.0).into(),
-                multi_color: MultiColor {
-                    top_left: clr_rec1,
-                    top_right: clr_rec2,
-                    bottom_left: clr_rec3,
-                    bottom_right: clr_rec4,
-                },
-            });
+                render_target.render_drawable(&Rectangle {
+                    point: Point::new(350.0, 0.0, 0.0),
+                    size: (50.0, 50.0).into(),
+                    multi_color: MultiColor {
+                        top_left: clr_rec1,
+                        top_right: clr_rec2,
+                        bottom_left: clr_rec3,
+                        bottom_right: clr_rec4,
+                    },
+                });
 
-            // Circles require a state change (an expensive operation) within citro2d's internals, so draw them last.
-            // Although it is possible to draw them in the middle of drawing non-circular objects
-            // (sprites, images, triangles, rectangles, etc.) this is not recommended. They should either
-            // be drawn before all non-circular objects, or afterwards.
+                // Circles require a state change (an expensive operation) within citro2d's internals, so draw them last.
+                // Although it is possible to draw them in the middle of drawing non-circular objects
+                // (sprites, images, triangles, rectangles, etc.) this is not recommended. They should either
+                // be drawn before all non-circular objects, or afterwards.
 
-            render_target.render_2d_shape(&Ellipse {
-                point: Point::new(0.0, 0.0, 0.0),
-                size: (SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32).into(),
-                multi_color: MultiColor {
-                    top_left: clr_circle1,
-                    top_right: clr_circle2,
-                    bottom_left: clr_circle3,
-                    bottom_right: clr_white,
-                },
-            });
+                render_target.render_drawable(&Ellipse {
+                    point: Point::new(0.0, 0.0, 0.0),
+                    size: (SCREEN_WIDTH as f32, SCREEN_HEIGHT as f32).into(),
+                    multi_color: MultiColor {
+                        top_left: clr_circle1,
+                        top_right: clr_circle2,
+                        bottom_left: clr_circle3,
+                        bottom_right: clr_white,
+                    },
+                });
 
-            render_target.render_2d_shape(&Circle {
-                point: Point::new((SCREEN_WIDTH / 2) as f32, (SCREEN_HEIGHT / 2) as f32, 0.0),
-                radius: 50.0,
-                multi_color: MultiColor {
-                    top_left: clr_circle3,
-                    top_right: clr_white,
-                    bottom_left: clr_circle1,
-                    bottom_right: clr_circle2,
-                },
-            });
+                render_target.render_drawable(&Circle {
+                    point: Point::new((SCREEN_WIDTH / 2) as f32, (SCREEN_HEIGHT / 2) as f32, 0.0),
+                    radius: 50.0,
+                    multi_color: MultiColor {
+                        top_left: clr_circle3,
+                        top_right: clr_white,
+                        bottom_left: clr_circle1,
+                        bottom_right: clr_circle2,
+                    },
+                });
 
-            render_target.render_2d_shape(&Circle {
-                point: Point::new(25.0, 25.0, 0.0),
-                radius: 25.0,
-                multi_color: MultiColor {
-                    top_left: clr_red,
-                    top_right: clr_blue,
-                    bottom_left: clr_green,
-                    bottom_right: clr_white,
-                },
-            });
+                render_target.render_drawable(&Circle {
+                    point: Point::new(25.0, 25.0, 0.0),
+                    radius: 25.0,
+                    multi_color: MultiColor {
+                        top_left: clr_red,
+                        top_right: clr_blue,
+                        bottom_left: clr_green,
+                        bottom_right: clr_white,
+                    },
+                });
 
-            render_target.render_2d_shape(&CircleSolid {
-                x: (SCREEN_WIDTH - 25) as f32,
-                y: (SCREEN_HEIGHT - 25) as f32,
-                z: 0.0,
-                radius: 25.0,
-                color: clr_solid_circle,
-            });
-        });
+                render_target.render_drawable(&CircleSolid {
+                    x: (SCREEN_WIDTH - 25) as f32,
+                    y: (SCREEN_HEIGHT - 25) as f32,
+                    z: 0.0,
+                    radius: 25.0,
+                    color: clr_solid_circle,
+                });
+
+                (render_target, ())
+            })
+            .unwrap();
 
         let stats = citro2d_instance.get_3d_stats();
         bottom_screen.select();

@@ -2,8 +2,8 @@
 //! Very simple implementation with bugs, but to show case a simple 2d game
 #![feature(allocator_api)]
 
+use citro2d::drawable::{CircleSolid, Drawable, DrawableResult, RectangleSolid};
 use citro2d::render::{Color, RenderTarget, TargetExt};
-use citro2d::shapes::{CircleSolid, RectangleSolid};
 use citro2d::{Point, Size};
 use ctru::{prelude::*, services::gfx::TopScreen3D};
 
@@ -85,21 +85,25 @@ fn main() {
             paddle.move_right();
         }
 
-        citro2d_instance.render_to_target(&mut top_target, |_instance, render_target| {
-            render_target.clear_with_color(black);
+        (top_target, ()) = citro2d_instance
+            .render_to_target(top_target, |_instance, mut render_target| {
+                render_target.clear_with_color(black);
 
-            paddle.render(render_target);
+                paddle.render(&mut render_target);
 
-            ball.bounce(&paddle);
-            for brick in &mut bricks {
-                if brick.is_alive {
-                    brick.live_or_die(&mut ball);
-                    brick.render(render_target);
+                ball.bounce(&paddle);
+                for brick in &mut bricks {
+                    if brick.is_alive {
+                        brick.live_or_die(&mut ball);
+                        brick.render(&mut render_target);
+                    }
                 }
-            }
-            //circles are better to render last for performance reasons
-            ball.render(render_target);
-        });
+                //circles are better to render last for performance reasons
+                ball.render(&mut render_target);
+
+                (render_target, ())
+            })
+            .unwrap();
 
         let stats = citro2d_instance.get_3d_stats();
         bottom_screen.select();
@@ -119,15 +123,17 @@ struct Paddle {
     pub color: Color,
 }
 
-impl Paddle {
-    fn render(&self, render_target: &mut RenderTarget) {
-        render_target.render_2d_shape(&RectangleSolid {
+impl Drawable for Paddle {
+    fn render(&self, target: &mut RenderTarget<'_>) -> DrawableResult {
+        target.render_drawable(&RectangleSolid {
             point: self.position,
             size: self.size,
             color: self.color,
-        });
+        })
     }
+}
 
+impl Paddle {
     fn move_left(&mut self) {
         if self.position.x > 0.0 {
             self.position.x -= 2.0;
@@ -148,17 +154,19 @@ struct Ball {
     pub velocity: Point,
 }
 
-impl Ball {
-    fn render(&self, render_target: &mut RenderTarget) {
-        render_target.render_2d_shape(&CircleSolid {
+impl Drawable for Ball {
+    fn render(&self, target: &mut RenderTarget<'_>) -> DrawableResult {
+        target.render_drawable(&CircleSolid {
             x: self.position.x,
             y: self.position.y,
             z: self.position.z,
             radius: self.radius,
             color: self.color,
-        });
+        })
     }
+}
 
+impl Ball {
     fn bounce(&mut self, paddle: &Paddle) {
         self.position.x += self.velocity.x;
         self.position.y += self.velocity.y;
@@ -202,17 +210,20 @@ struct Brick {
     pub is_alive: bool,
 }
 
-impl Brick {
-    fn render(&self, render_target: &mut RenderTarget) {
+impl Drawable for Brick {
+    fn render(&self, target: &mut RenderTarget<'_>) -> DrawableResult {
         if self.is_alive {
-            render_target.render_2d_shape(&RectangleSolid {
+            target.render_drawable(&RectangleSolid {
                 point: self.position,
                 size: self.size,
                 color: self.color,
-            });
+            })?
         }
+        DrawableResult::Success
     }
+}
 
+impl Brick {
     fn check_collision(&self, ball: &mut Ball) -> bool {
         let brick_left = self.position.x;
         let brick_right = self.position.x + self.size.width;

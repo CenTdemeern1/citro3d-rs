@@ -8,6 +8,7 @@
 #![doc(
     html_logo_url = "https://user-images.githubusercontent.com/11131775/225929072-2fa1741c-93ae-4b47-9bdf-af70f3d59910.png"
 )]
+#![feature(try_trait_v2)]
 
 //! Safe Rust bindings to `citro2d`. This crate wraps `citro2d-sys` to provide
 //! safer APIs for graphics programs targeting the 3DS.
@@ -15,9 +16,9 @@
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 
+pub mod drawable;
 pub mod error;
 pub mod render;
-pub mod shapes;
 use std::cell::RefMut;
 
 use citro2d_sys::C2D_DEFAULT_MAX_OBJECTS;
@@ -75,7 +76,7 @@ impl Instance {
         new_citro_2d
     }
 
-    pub fn create_screen_target<'screen, S: Screen>(
+    pub fn create_screen_target<'screen>(
         &self,
         screen: RefMut<'screen, dyn Screen>,
     ) -> Result<ScreenTarget<'screen>> {
@@ -93,14 +94,12 @@ impl Instance {
     #[doc(alias = "C3D_FrameBegin")]
     #[doc(alias = "C2D_SceneBegin")]
     #[doc(alias = "C3D_FrameEnd")]
-    pub fn render_to_target<'screen, 'screen2, S, S2, F, T>(
+    pub fn render_to_target<'screen, 'screen2, F, T>(
         &mut self,
         screen_target: ScreenTarget<'screen>,
         f: F,
     ) -> citro3d::Result<(ScreenTarget<'screen2>, T)>
     where
-        S: Screen + 'screen,
-        S2: Screen + 'screen2,
         F: FnOnce(
             &mut citro3d::RenderInstance,
             RenderTarget<'screen>,
