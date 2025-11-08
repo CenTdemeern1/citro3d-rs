@@ -10,7 +10,7 @@ glam = { version = "0.30.5", optional = true }
 approx = { version = "0.5.1", optional = true }
 bitflags = "2.9.1"
 bytemuck = { version = "1.23.2", features = ["extern_crate_std"] }
-citro3d-macros = { version = "0.1.0", path = "../citro3d-macros" }
+citro3d-macros = { path = "../citro3d-macros" }
 citro3d-sys = { path = "../citro3d-sys" }
 ctru-rs = { git = "https://github.com/rust3ds/ctru-rs.git" }
 ctru-sys = { git = "https://github.com/rust3ds/ctru-rs.git" }
