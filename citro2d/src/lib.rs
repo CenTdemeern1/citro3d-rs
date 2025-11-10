@@ -18,6 +18,7 @@
 
 pub mod drawable;
 pub mod error;
+pub mod font;
 pub mod render;
 use std::cell::RefMut;
 
