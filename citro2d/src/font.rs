@@ -1,6 +1,12 @@
-use std::ptr::null_mut;
+use std::{
+    ffi::CString,
+    io,
+    os::{fd::AsRawFd, unix::ffi::OsStrExt},
+    path::Path,
+    ptr::null_mut,
+};
 
-use citro2d_sys::{C2D_Font, C2D_FontFree};
+use citro2d_sys::{C2D_Font, C2D_FontFree, C2D_FontLoad, C2D_FontLoadFromFD, C2D_FontLoadFromMem};
 use ctru::error::ResultCode;
 use ctru_sys::fontEnsureMapped;
 
@@ -69,7 +75,59 @@ impl Font {
     ///
     /// Dropping this `Font` will free the pointee via [`C2D_FontFree`].
     pub unsafe fn from_raw(font_ptr: C2D_Font) -> Self {
-        Self(font_ptr)
+        Font(font_ptr)
+    }
+
+    /// Load a font from a file path.
+    ///
+    /// This expects a `.bcfnt` CTR bitmap font, not your typical TTF file; for
+    /// more information about this format
+    /// [see 3dbrew](https://www.3dbrew.org/wiki/BCFNT).
+    ///
+    /// # Safety
+    /// The font data is not checked for validity. Ensuring the validity of the
+    /// font data is up to the caller.
+    #[doc(alias = "C2D_FontLoad")]
+    pub unsafe fn from_file_path_unchecked(path: impl AsRef<Path>) -> io::Result<Self> {
+        // Turn the path into a CString
+        let c_path = CString::new(path.as_ref().as_os_str().as_bytes())
+            .map_err(|_| io::ErrorKind::InvalidFilename)?;
+
+        // Actually load the font
+        Self::pointer_or_last_error(unsafe { C2D_FontLoad(c_path.as_ptr()) })
+    }
+
+    /// Load a font from a file descriptor.
+    ///
+    /// # Safety
+    /// The font data is not checked for validity. Ensuring the validity of the
+    /// font data is up to the caller.
+    ///
+    /// Ensuring the safety of actually using the file descriptor is also up to
+    /// the caller.
+    #[doc(alias = "C2D_FontLoadFromFD")]
+    pub unsafe fn from_file_descriptor_unchecked(fd: impl AsRawFd) -> io::Result<Self> {
+        Self::pointer_or_last_error(unsafe { C2D_FontLoadFromFD(fd.as_raw_fd()) })
+    }
+
+    /// Load a font from a slice.
+    ///
+    /// # Safety
+    /// The font data is not checked for validity. Ensuring the validity of the
+    /// font data is up to the caller.
+    #[doc(alias = "C2D_FontLoadFromMem")]
+    pub unsafe fn from_slice_unchecked(slice: &[u8]) -> io::Result<Self> {
+        Self::pointer_or_last_error(unsafe {
+            C2D_FontLoadFromMem(slice.as_ptr().cast(), slice.len())
+        })
+    }
+
+    fn pointer_or_last_error(font_pointer: C2D_Font) -> io::Result<Self> {
+        if font_pointer.is_null() {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(Font(font_pointer))
+        }
     }
 
     /// Gets a copy of the inner [`C2D_Font`] pointer.
