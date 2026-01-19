@@ -20,6 +20,7 @@ pub mod drawable;
 pub mod error;
 pub mod font;
 pub mod render;
+pub mod text;
 use std::cell::RefMut;
 
 use citro2d_sys::C2D_DEFAULT_MAX_OBJECTS;
