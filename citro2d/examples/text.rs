@@ -45,6 +45,10 @@ fn main() {
     while apt.main_loop() {
         hid.scan_input();
 
+        if hid.keys_down().contains(KeyPad::START) {
+            break;
+        }
+
         hello_text.style.scalars.0 += scalar_delta;
         if !(1.0..=2.0).contains(&hello_text.style.scalars.0) {
             scalar_delta *= -1.
