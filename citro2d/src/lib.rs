@@ -9,6 +9,7 @@
     html_logo_url = "https://user-images.githubusercontent.com/11131775/225929072-2fa1741c-93ae-4b47-9bdf-af70f3d59910.png"
 )]
 #![feature(try_trait_v2)]
+#![feature(slice_ptr_get)]
 
 //! Safe Rust bindings to `citro2d`. This crate wraps `citro2d-sys` to provide
 //! safer APIs for graphics programs targeting the 3DS.
@@ -20,6 +21,7 @@ pub mod drawable;
 pub mod error;
 pub mod font;
 pub mod render;
+pub mod text;
 use std::cell::RefMut;
 
 use citro2d_sys::C2D_DEFAULT_MAX_OBJECTS;
