@@ -4,12 +4,16 @@ use citro2d::{
     render::{Color, TargetExt as _},
     text::{HorizontalAlignment, Text, TextDrawStyle},
 };
-use ctru::{prelude::*, services::gfx::TopScreen3D};
+use ctru::{
+    prelude::*,
+    services::{gfx::TopScreen3D, romfs::RomFS},
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let gfx = Gfx::new().expect("Couldn't obtain GFX controller");
     let mut hid = Hid::new().expect("Couldn't obtain HID controller");
     let apt = Apt::new().expect("Couldn't obtain APT controller");
+    let _romfs = RomFS::new();
 
     ctru::set_panic_hook(false);
 
@@ -25,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let clr_clear = Color::new(255, 216, 176);
 
     let system_font = Font::get_shared();
+    let custom_font = unsafe { Font::from_file_path_unchecked("romfs:/dancing-script.bcfnt")? };
 
     let mut hello_text = Text::new(
         (200., 32.).into(),
@@ -34,11 +39,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     hello_text.parse("hello, Citro2D!", &system_font)?;
 
-    let mut wrapping_text = Text::new(
+    let mut custom_font_text = Text::new(
         (32., 64.).into(),
         TextDrawStyle::default().with_word_wrap(Some(400. - (32. * 2.))),
     )?;
-    wrapping_text.parse("The quick brown fox jumps over the lazy dog.", &system_font)?;
+    custom_font_text.parse("The quick brown fox jumps over the lazy dog.", &custom_font)?;
 
     let mut scalar_delta = 0.025;
 
@@ -66,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 });
 
                 render_target.render_drawable(&hello_text);
-                render_target.render_drawable(&wrapping_text);
+                render_target.render_drawable(&custom_font_text);
 
                 (render_target, ())
             })
